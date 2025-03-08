@@ -53,7 +53,15 @@ def stats():
 
     total_minutes = sum(item["track"]["duration_ms"] / 60000 for item in data.get("items", []))
 
-    return f"Total streamed minutes: {round(total_minutes, 2)}"
+    # Felhasználói adatok lekérése
+    user_res = requests.get("https://api.spotify.com/v1/me", headers=headers)
+    user_data = user_res.json()
 
+    return jsonify({
+        "username": user_data.get("display_name", "Unknown"),
+        "profile_image": user_data["images"][0]["url"] if user_data.get("images") else "",
+        "total_minutes": round(total_minutes, 2)
+    })
+    
 if __name__ == "__main__":
     app.run(debug=True)
