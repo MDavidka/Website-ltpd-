@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Stats</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #181818;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .profile {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        .profile img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+        }
+        .leaderboard {
+            margin-top: 20px;
+            font-size: 1.2em;
+            background: #282828;
+            padding: 10px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .total-minutes {
+            font-size: 2em;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="profile">
+            <img id="profile-image" src="" alt="Profile Picture">
+            <h2 id="username">Loading...</h2>
+        </div>
+        <div class="total-minutes">
+            Total streamed minutes: <span id="minutes">0</span> min
+        </div>
+        <div class="leaderboard">
+            🏆 Leaderboard Coming Soon...
+        </div>
+    </div>
+
+    <script>
+        function fetchStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("username").textContent = data.username;
+                    document.getElementById("minutes").textContent = data.total_minutes;
+                    if (data.profile_image) {
+                        document.getElementById("profile-image").src = data.profile_image;
+                    }
+                })
+                .catch(error => console.error("Error fetching stats:", error));
+        }
+
+        // Frissítés 5 másodpercenként
+        fetchStats();
+        setInterval(fetchStats, 5000);
+    </script>
+</body>
+</html>
