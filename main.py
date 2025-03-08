@@ -20,36 +20,34 @@ SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
 REDIRECT_URI = "https://ltpd.xyz/callback"
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
-USER_URL = "https://api.spotify.com/v1/me/player/recently-played"
+CURRENTLY_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing"
 
 # Initialize the scheduler
 scheduler = BackgroundScheduler()
 
 def update_user_playback_time():
-    """Fetch user’s current listening time and update MongoDB"""
+    """Fetch user’s currently playing track and update MongoDB"""
     for user in users_collection.find({}):  # Iterate over all users in the database
         spotify_id = user['spotify_id']
         access_token = user['access_token']
         
         headers = {"Authorization": f"Bearer {access_token}"}
-        res = requests.get(USER_URL, headers=headers)
+        res = requests.get(CURRENTLY_PLAYING_URL, headers=headers)
         
         if res.status_code == 200:
             data = res.json()
-            total_minutes = user.get('total_minutes', 0)
-            
-            # Add the duration of all recently played tracks
-            for item in data.get("items", []):
-                track_duration = item["track"]["duration_ms"] / 60000  # Convert to minutes
-                total_minutes += track_duration
-            
-            # Update the total minutes in MongoDB
-            users_collection.update_one(
-                {"spotify_id": spotify_id},
-                {"$set": {"total_minutes": total_minutes}},
-                upsert=True
-            )
-            print(f"Updated total minutes for {spotify_id}: {total_minutes}")
+            if data.get("is_playing"):  # Check if a track is currently playing
+                track_duration = data["item"]["duration_ms"] / 60000  # Convert to minutes
+                progress = data["progress_ms"] / 60000  # Convert progress to minutes
+                total_minutes = user.get('total_minutes', 0) + (track_duration - progress)
+                
+                # Update the total minutes in MongoDB
+                users_collection.update_one(
+                    {"spotify_id": spotify_id},
+                    {"$set": {"total_minutes": total_minutes}},
+                    upsert=True
+                )
+                print(f"Updated total minutes for {spotify_id}: {total_minutes}")
 
 # Add a job to run every minute to fetch and update user's listening data
 scheduler.add_job(update_user_playback_time, 'interval', minutes=1)
@@ -57,7 +55,7 @@ scheduler.start()
 
 @app.route("/")
 def index():
-    return redirect(f"{AUTH_URL}?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&scope=user-read-recently-played user-read-email user-read-private")
+    return redirect(f"{AUTH_URL}?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&scope=user-read-recently-played user-read-email user-read-private user-read-playback-state")
 
 @app.route("/callback")
 def callback():
@@ -107,11 +105,7 @@ def stats():
     if user_in_db:
         total_minutes = user_in_db.get('total_minutes', 0)
 
-    return jsonify({
-        "username": user_data.get("display_name", "Unknown"),
-        "profile_image": user_data["images"][0]["url"] if user_data.get("images") else "",
-        "total_minutes": round(total_minutes, 2)
-    })
+    return render_template("stats.html", username=user_data.get("display_name", "Unknown"), total_minutes=round(total_minutes, 2))
 
 if __name__ == "__main__":
     app.run(debug=True)
