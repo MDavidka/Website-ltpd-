@@ -37,9 +37,11 @@ def callback():
     res = requests.post(TOKEN_URL, data=token_data, headers=headers)
     token_json = res.json()
     
+    # Token mentése session-be
     session["access_token"] = token_json.get("access_token")
     
-    return redirect("/stats")
+    # Sikeres bejelentkezés után átirányítás a stats.html oldalra
+    return redirect("/stats.html")
 
 @app.route("/stats")
 def stats():
