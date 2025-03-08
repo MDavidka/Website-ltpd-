@@ -134,9 +134,12 @@ def api_stats():
     if not token:
         return jsonify({"error": "Unauthorized"}), 401
 
+    debug_info = []  # Hibakeresési információk gyűjtése
     user_in_db = users_collection.find_one({"spotify_id": session.get("spotify_id")})
     if not user_in_db:
         return jsonify({"error": "User not found"}), 404
+
+    debug_info.append("✅ Felhasználó adatainak lekérése a MongoDB-ből sikeres.")
 
     # Fetch recently played tracks for debugging
     headers = {"Authorization": f"Bearer {token}"}
@@ -144,20 +147,43 @@ def api_stats():
         res = requests.get(RECENTLY_PLAYED_URL, headers=headers, params={"limit": 10})
         res.raise_for_status()
         recently_played = res.json().get("items", [])
+        debug_info.append("✅ Spotify API hívása sikeres. Zenék lekérdezve.")
     except Exception as e:
         recently_played = []
-        print(f"Error fetching recently played tracks: {e}")
+        debug_info.append(f"❌ Spotify API hívása sikertelen: {e}")
+
+    # Calculate total minutes and prepare debug info for each track
+    total_minutes = user_in_db.get('total_minutes', 0)
+    track_debug_info = []
+    for item in recently_played:
+        track_name = item["track"]["name"]
+        artist_name = item["track"]["artists"][0]["name"]
+        duration_minutes = round(item["track"]["duration_ms"] / 60000, 2)
+        total_minutes += duration_minutes
+        track_debug_info.append({
+            "track_name": track_name,
+            "artist_name": artist_name,
+            "duration_minutes": duration_minutes,
+            "status": "✅ Hozzáadva a hallgatási időhöz."
+        })
+
+    debug_info.append("✅ Zenék hozzáadva a hallgatási időhöz.")
+
+    # Update the total minutes in MongoDB
+    try:
+        users_collection.update_one(
+            {"spotify_id": session.get("spotify_id")},
+            {"$set": {"total_minutes": total_minutes}},
+            upsert=True
+        )
+        debug_info.append("✅ Adatbázis frissítése sikeres.")
+    except Exception as e:
+        debug_info.append(f"❌ Adatbázis frissítése sikertelen: {e}")
 
     return jsonify({
-        "total_minutes": user_in_db.get('total_minutes', 0),
-        "recently_played": [
-            {
-                "track_name": item["track"]["name"],
-                "artist_name": item["track"]["artists"][0]["name"],
-                "duration_minutes": round(item["track"]["duration_ms"] / 60000, 2)
-            }
-            for item in recently_played
-        ]
+        "total_minutes": total_minutes,
+        "recently_played": track_debug_info,
+        "debug_info": debug_info
     })
 if __name__ == "__main__":
     app.run(debug=True)
