@@ -1,25 +1,59 @@
-from flask import Flask, request, redirect, session, render_template
+from flask import Flask, request, redirect, session, render_template, jsonify
 import requests
 import base64
 from pymongo import MongoClient
+from apscheduler.schedulers.background import BackgroundScheduler
 import time
 
-# Flask alkalmazás inicializálása
+# Flask application initialization
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
 
-# MongoDB kapcsolat beállítása
+# MongoDB connection
 client = MongoClient("mongodb+srv://EFmTCpVa57UnGnG1:EFmTCpVa57UnGnG1@cluster0.iuxk8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = client['spotify_data']
-users_collection = db['users']  # 'users' kolekció, ahol a felhasználói adatokat tároljuk
+users_collection = db['users']
 
-# Spotify API kulcsok
+# Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
 SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
 REDIRECT_URI = "https://ltpd.xyz/callback"
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 USER_URL = "https://api.spotify.com/v1/me/player/recently-played"
+
+# Initialize the scheduler
+scheduler = BackgroundScheduler()
+
+def update_user_playback_time():
+    """Fetch user’s current listening time and update MongoDB"""
+    for user in users_collection.find({}):  # Iterate over all users in the database
+        spotify_id = user['spotify_id']
+        access_token = user['access_token']
+        
+        headers = {"Authorization": f"Bearer {access_token}"}
+        res = requests.get(USER_URL, headers=headers)
+        
+        if res.status_code == 200:
+            data = res.json()
+            total_minutes = user.get('total_minutes', 0)
+            
+            # Add the duration of all recently played tracks
+            for item in data.get("items", []):
+                track_duration = item["track"]["duration_ms"] / 60000  # Convert to minutes
+                total_minutes += track_duration
+            
+            # Update the total minutes in MongoDB
+            users_collection.update_one(
+                {"spotify_id": spotify_id},
+                {"$set": {"total_minutes": total_minutes}},
+                upsert=True
+            )
+            print(f"Updated total minutes for {spotify_id}: {total_minutes}")
+
+# Add a job to run every minute to fetch and update user's listening data
+scheduler.add_job(update_user_playback_time, 'interval', minutes=1)
+scheduler.start()
 
 @app.route("/")
 def index():
@@ -45,7 +79,16 @@ def callback():
     token_json = res.json()
     
     session["access_token"] = token_json.get("access_token")
-    
+    spotify_id = token_json.get("id")
+    session["spotify_id"] = spotify_id
+
+    # Store the user info in MongoDB
+    users_collection.insert_one({
+        "spotify_id": spotify_id,
+        "access_token": token_json.get("access_token"),
+        "total_minutes": 0
+    })
+
     return redirect("/stats")
 
 @app.route("/stats")
@@ -55,43 +98,20 @@ def stats():
         return redirect("/")  
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = requests.get(USER_URL, headers=headers)
-    data = res.json()
+    res = requests.get("https://api.spotify.com/v1/me", headers=headers)
+    user_data = res.json()
 
     total_minutes = 0
+    user_in_db = users_collection.find_one({"spotify_id": session.get("spotify_id")})
 
-    # MongoDB-ban tárolt felhasználó lekérése
-    user_data = users_collection.find_one({"spotify_id": session.get("spotify_id")})
-    if user_data:
-        total_minutes = user_data.get('total_minutes', 0)  # Ha van már adat, vegyük az összesített percet
-    else:
-        # Ha új felhasználó, akkor inicializáljuk
-        users_collection.insert_one({"spotify_id": session.get("spotify_id"), "total_minutes": 0})
+    if user_in_db:
+        total_minutes = user_in_db.get('total_minutes', 0)
 
-    # Zene hallgatási idő frissítése
-    for item in data.get("items", []):
-        track_duration = item["track"]["duration_ms"] / 60000  # percben
-        total_minutes += track_duration
-
-    # Az új összesített idő frissítése MongoDB-ben
-    users_collection.update_one(
-        {"spotify_id": session.get("spotify_id")}, 
-        {"$set": {"total_minutes": total_minutes}},
-        upsert=True
-    )
-
-    # Felhasználói adatok lekérése a Spotify API-ból (név és kép)
-    user_res = requests.get("https://api.spotify.com/v1/me", headers=headers)
-    user_data = user_res.json()
-
-    return render_template("stats.html", username=user_data.get("display_name", "Unknown"),
-                           profile_image=user_data["images"][0]["url"] if user_data.get("images") else "",
-                           total_minutes=round(total_minutes, 2))
-
-# Statikus fájlok kezelésének biztosítása
-@app.route('/static/<path:filename>')
-def static_files(filename):
-    return send_from_directory(os.path.join(app.root_path, 'static'), filename)
+    return jsonify({
+        "username": user_data.get("display_name", "Unknown"),
+        "profile_image": user_data["images"][0]["url"] if user_data.get("images") else "",
+        "total_minutes": round(total_minutes, 2)
+    })
 
 if __name__ == "__main__":
     app.run(debug=True)
