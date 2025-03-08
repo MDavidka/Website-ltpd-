@@ -68,18 +68,17 @@ def stats():
         # Ha új felhasználó, akkor inicializáljuk
         users_collection.insert_one({"spotify_id": session.get("spotify_id"), "total_minutes": 0})
 
-    # Csak akkor frissítjük, ha van hallgatott zene
-    if data.get("items"):
-        for item in data["items"]:
-            track_duration = item["track"]["duration_ms"] / 60000  # percben
-            total_minutes += track_duration
+    # Zene hallgatási idő frissítése
+    for item in data.get("items", []):
+        track_duration = item["track"]["duration_ms"] / 60000  # percben
+        total_minutes += track_duration
 
-        # Az új összesített idő frissítése MongoDB-ben
-        users_collection.update_one(
-            {"spotify_id": session.get("spotify_id")}, 
-            {"$set": {"total_minutes": total_minutes}},
-            upsert=True
-        )
+    # Az új összesített idő frissítése MongoDB-ben
+    users_collection.update_one(
+        {"spotify_id": session.get("spotify_id")}, 
+        {"$set": {"total_minutes": total_minutes}},
+        upsert=True
+    )
 
     # Felhasználói adatok lekérése a Spotify API-ból (név és kép)
     user_res = requests.get("https://api.spotify.com/v1/me", headers=headers)
