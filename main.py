@@ -20,7 +20,6 @@ SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
 REDIRECT_URI = "https://ltpd.xyz/callback"
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
-CURRENTLY_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing"
 RECENTLY_PLAYED_URL = "https://api.spotify.com/v1/me/player/recently-played"
 
 # Initialize the scheduler
@@ -28,6 +27,7 @@ scheduler = BackgroundScheduler()
 
 def update_user_playback_time():
     """Fetch user’s recently played tracks and update MongoDB"""
+    print("Running scheduled task...")
     for user in users_collection.find({}):  # Iterate over all users in the database
         spotify_id = user['spotify_id']
         access_token = user['access_token']
