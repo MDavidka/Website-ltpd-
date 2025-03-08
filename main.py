@@ -21,26 +21,30 @@ REDIRECT_URI = "https://ltpd.xyz/callback"
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 CURRENTLY_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing"
+RECENTLY_PLAYED_URL = "https://api.spotify.com/v1/me/player/recently-played"
 
 # Initialize the scheduler
 scheduler = BackgroundScheduler()
 
 def update_user_playback_time():
-    """Fetch user’s currently playing track and update MongoDB"""
+    """Fetch user’s recently played tracks and update MongoDB"""
     for user in users_collection.find({}):  # Iterate over all users in the database
         spotify_id = user['spotify_id']
         access_token = user['access_token']
         
         headers = {"Authorization": f"Bearer {access_token}"}
-        res = requests.get(CURRENTLY_PLAYING_URL, headers=headers)
-        
-        if res.status_code == 200:  # Sikeres válasz
-            data = res.json()
-            if data.get("is_playing"):  # Ellenőrizd, hogy éppen játszik-e
-                track_duration = data["item"]["duration_ms"] / 60000  # Percben
-                progress = data["progress_ms"] / 60000  # Percben
-                total_minutes = user.get('total_minutes', 0) + (track_duration - progress)
-                
+        try:
+            # Fetch recently played tracks
+            res = requests.get(RECENTLY_PLAYED_URL, headers=headers, params={"limit": 50})
+            if res.status_code == 200:
+                data = res.json()
+                total_minutes = user.get('total_minutes', 0)
+
+                # Add the duration of all recently played tracks
+                for item in data.get("items", []):
+                    track_duration = item["track"]["duration_ms"] / 60000  # Convert to minutes
+                    total_minutes += track_duration
+
                 # Update the total minutes in MongoDB
                 users_collection.update_one(
                     {"spotify_id": spotify_id},
@@ -48,10 +52,10 @@ def update_user_playback_time():
                     upsert=True
                 )
                 print(f"Updated total minutes for {spotify_id}: {total_minutes}")
-        elif res.status_code == 204:  # Nincs aktív lejátszás
-            print(f"No active playback for {spotify_id}")
-        else:
-            print(f"Error fetching playback data for {spotify_id}: {res.status_code}")
+            else:
+                print(f"Error fetching recently played tracks for {spotify_id}: {res.status_code}")
+        except Exception as e:
+            print(f"Exception occurred for {spotify_id}: {e}")
 
 # Add a job to run every minute to fetch and update user's listening data
 scheduler.add_job(update_user_playback_time, 'interval', minutes=1)
@@ -59,7 +63,7 @@ scheduler.start()
 
 @app.route("/")
 def index():
-    return redirect(f"{AUTH_URL}?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&scope=user-read-recently-played user-read-email user-read-private user-read-playback-state")
+    return redirect(f"{AUTH_URL}?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&scope=user-read-recently-played user-read-email user-read-private")
 
 @app.route("/callback")
 def callback():
@@ -77,27 +81,31 @@ def callback():
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    res = requests.post(TOKEN_URL, data=token_data, headers=headers)
-    token_json = res.json()
-    
-    if "access_token" not in token_json:
-        return "Failed to retrieve access token", 400
+    try:
+        res = requests.post(TOKEN_URL, data=token_data, headers=headers)
+        res.raise_for_status()  # Raise an error for bad status codes
+        token_json = res.json()
+        
+        if "access_token" not in token_json:
+            return "Failed to retrieve access token", 400
 
-    session["access_token"] = token_json.get("access_token")
-    spotify_id = token_json.get("id")
-    session["spotify_id"] = spotify_id
+        session["access_token"] = token_json.get("access_token")
+        spotify_id = token_json.get("id")
+        session["spotify_id"] = spotify_id
 
-    # Store the user info in MongoDB
-    users_collection.update_one(
-        {"spotify_id": spotify_id},
-        {"$set": {
-            "access_token": token_json.get("access_token"),
-            "total_minutes": 0
-        }},
-        upsert=True
-    )
+        # Store the user info in MongoDB
+        users_collection.update_one(
+            {"spotify_id": spotify_id},
+            {"$set": {
+                "access_token": token_json.get("access_token"),
+                "total_minutes": 0
+            }},
+            upsert=True
+        )
 
-    return redirect("/stats")
+        return redirect("/stats")
+    except Exception as e:
+        return f"Error during callback: {e}", 500
 
 @app.route("/stats")
 def stats():
@@ -106,16 +114,31 @@ def stats():
         return redirect("/")  
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = requests.get("https://api.spotify.com/v1/me", headers=headers)
-    user_data = res.json()
+    try:
+        res = requests.get("https://api.spotify.com/v1/me", headers=headers)
+        res.raise_for_status()
+        user_data = res.json()
 
-    total_minutes = 0
+        total_minutes = 0
+        user_in_db = users_collection.find_one({"spotify_id": session.get("spotify_id")})
+        if user_in_db:
+            total_minutes = user_in_db.get('total_minutes', 0)
+
+        return render_template("stats.html", username=user_data.get("display_name", "Unknown"), total_minutes=round(total_minutes, 2))
+    except Exception as e:
+        return f"Error fetching user data: {e}", 500
+
+@app.route("/api/stats")
+def api_stats():
+    token = session.get("access_token")
+    if not token:
+        return jsonify({"error": "Unauthorized"}), 401
+
     user_in_db = users_collection.find_one({"spotify_id": session.get("spotify_id")})
-
     if user_in_db:
-        total_minutes = user_in_db.get('total_minutes', 0)
-
-    return render_template("stats.html", username=user_data.get("display_name", "Unknown"), total_minutes=round(total_minutes, 2))
+        return jsonify({"total_minutes": user_in_db.get('total_minutes', 0)})
+    else:
+        return jsonify({"error": "User not found"}), 404
 
 if __name__ == "__main__":
     app.run(debug=True)
