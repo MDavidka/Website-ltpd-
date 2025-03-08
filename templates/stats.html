@@ -12,13 +12,6 @@
             border-radius: 5px;
             background-color: #f9f9f9;
         }
-        .track-item {
-            margin-bottom: 10px;
-        }
-        .status-icon {
-            margin-left: 10px;
-            font-size: 1.2em;
-        }
         .debug-step {
             margin-bottom: 10px;
         }
@@ -36,7 +29,7 @@
     <script>
         async function fetchStats() {
             try {
-                const response = await fetch("/api/stats");
+                const response = await fetch("/stats");
                 if (!response.ok) {
                     throw new Error("Failed to fetch stats");
                 }
@@ -47,20 +40,10 @@
                 const debugSection = document.getElementById("debug-section");
                 debugSection.innerHTML = `
                     <h3>Hibakeresés</h3>
-                    <p>Rendszer működése lépésről lépésre:</p>
+                    <p>Legutóbbi 10 esemény:</p>
                     ${data.debug_info.map(step => `
                         <div class="debug-step ${step.message.includes("✅") ? "success" : "error"}">
                             <span class="timestamp">${step.timestamp}</span> - ${step.message}
-                        </div>
-                    `).join("")}
-
-                    <p>Utoljára hallgatott zenék:</p>
-                    ${data.recently_played.map(item => `
-                        <div class="track-item">
-                            <span class="timestamp">${item.timestamp}</span> - 
-                            <strong>${item.track_name}</strong> by ${item.artist_name} 
-                            (${item.duration_minutes} perc)
-                            <span class="status-icon">${item.status.includes("✅") ? "✅" : "❌"}</span>
                         </div>
                     `).join("")}
                 `;
