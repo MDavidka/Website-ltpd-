@@ -5,12 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Listening Stats</title>
     <script>
-        // Fetch updated listening time every 10 seconds
-        setInterval(async () => {
-            const response = await fetch("/stats");
-            const data = await response.json();
-            document.getElementById("total-minutes").innerText = data.total_minutes.toFixed(2);
-        }, 10000);
+        async function fetchStats() {
+            try {
+                const response = await fetch("/api/stats");
+                if (!response.ok) {
+                    throw new Error("Failed to fetch stats");
+                }
+                const data = await response.json();
+                document.getElementById("total-minutes").innerText = data.total_minutes.toFixed(2);
+            } catch (error) {
+                console.error("Error fetching stats:", error);
+            }
+        }
+
+        // Frissítsd az adatokat minden 10 másodpercben
+        setInterval(fetchStats, 10000);
+        fetchStats();  // Az oldal betöltésekor azonnal frissítsd az adatokat
     </script>
 </head>
 <body>
