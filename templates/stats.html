@@ -4,6 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Listening Stats</title>
+    <style>
+        .debug-section {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .track-item {
+            margin-bottom: 10px;
+        }
+        .status-icon {
+            margin-left: 10px;
+            font-size: 1.2em;
+        }
+    </style>
     <script>
         async function fetchStats() {
             try {
@@ -13,6 +29,20 @@
                 }
                 const data = await response.json();
                 document.getElementById("total-minutes").innerText = data.total_minutes.toFixed(2);
+
+                // Update debug section
+                const debugSection = document.getElementById("debug-section");
+                debugSection.innerHTML = `
+                    <h3>Hibakeresés</h3>
+                    <p>Utoljára hallgatott zenék:</p>
+                    ${data.recently_played.map(item => `
+                        <div class="track-item">
+                            <strong>${item.track_name}</strong> by ${item.artist_name} 
+                            (${item.duration_minutes} perc)
+                            <span class="status-icon">✅</span>
+                        </div>
+                    `).join("")}
+                `;
             } catch (error) {
                 console.error("Error fetching stats:", error);
             }
@@ -26,5 +56,10 @@
 <body>
     <h1>Welcome, <span id="username">{{ username }}</span>!</h1>
     <h2>Total Listening Time: <span id="total-minutes">{{ total_minutes }}</span> minutes</h2>
+
+    <!-- Hibakeresési szekció -->
+    <div id="debug-section" class="debug-section">
+        <p>Hibakeresési információk betöltése...</p>
+    </div>
 </body>
 </html>
