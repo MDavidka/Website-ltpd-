@@ -128,6 +128,8 @@ def stats():
     except Exception as e:
         return f"Error fetching user data: {e}", 500
 
+from datetime import datetime  # Importáljuk a datetime modult
+
 @app.route("/api/stats")
 def api_stats():
     token = session.get("access_token")
@@ -139,7 +141,10 @@ def api_stats():
     if not user_in_db:
         return jsonify({"error": "User not found"}), 404
 
-    debug_info.append("✅ Felhasználó adatainak lekérése a MongoDB-ből sikeres.")
+    debug_info.append({
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "message": "✅ Felhasználó adatainak lekérése a MongoDB-ből sikeres."
+    })
 
     # Fetch recently played tracks for debugging
     headers = {"Authorization": f"Bearer {token}"}
@@ -147,10 +152,16 @@ def api_stats():
         res = requests.get(RECENTLY_PLAYED_URL, headers=headers, params={"limit": 10})
         res.raise_for_status()
         recently_played = res.json().get("items", [])
-        debug_info.append("✅ Spotify API hívása sikeres. Zenék lekérdezve.")
+        debug_info.append({
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "message": "✅ Spotify API hívása sikeres. Zenék lekérdezve."
+        })
     except Exception as e:
         recently_played = []
-        debug_info.append(f"❌ Spotify API hívása sikertelen: {e}")
+        debug_info.append({
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "message": f"❌ Spotify API hívása sikertelen: {e}"
+        })
 
     # Calculate total minutes and prepare debug info for each track
     total_minutes = user_in_db.get('total_minutes', 0)
@@ -161,13 +172,17 @@ def api_stats():
         duration_minutes = round(item["track"]["duration_ms"] / 60000, 2)
         total_minutes += duration_minutes
         track_debug_info.append({
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "track_name": track_name,
             "artist_name": artist_name,
             "duration_minutes": duration_minutes,
             "status": "✅ Hozzáadva a hallgatási időhöz."
         })
 
-    debug_info.append("✅ Zenék hozzáadva a hallgatási időhöz.")
+    debug_info.append({
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "message": "✅ Zenék hozzáadva a hallgatási időhöz."
+    })
 
     # Update the total minutes in MongoDB
     try:
@@ -176,9 +191,15 @@ def api_stats():
             {"$set": {"total_minutes": total_minutes}},
             upsert=True
         )
-        debug_info.append("✅ Adatbázis frissítése sikeres.")
+        debug_info.append({
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "message": "✅ Adatbázis frissítése sikeres."
+        })
     except Exception as e:
-        debug_info.append(f"❌ Adatbázis frissítése sikertelen: {e}")
+        debug_info.append({
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "message": f"❌ Adatbázis frissítése sikertelen: {e}"
+        })
 
     return jsonify({
         "total_minutes": total_minutes,
