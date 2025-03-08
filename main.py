@@ -135,11 +135,30 @@ def api_stats():
         return jsonify({"error": "Unauthorized"}), 401
 
     user_in_db = users_collection.find_one({"spotify_id": session.get("spotify_id")})
-    if user_in_db:
-        return jsonify({"total_minutes": user_in_db.get('total_minutes', 0)})
-    else:
+    if not user_in_db:
         return jsonify({"error": "User not found"}), 404
 
+    # Fetch recently played tracks for debugging
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        res = requests.get(RECENTLY_PLAYED_URL, headers=headers, params={"limit": 10})
+        res.raise_for_status()
+        recently_played = res.json().get("items", [])
+    except Exception as e:
+        recently_played = []
+        print(f"Error fetching recently played tracks: {e}")
+
+    return jsonify({
+        "total_minutes": user_in_db.get('total_minutes', 0),
+        "recently_played": [
+            {
+                "track_name": item["track"]["name"],
+                "artist_name": item["track"]["artists"][0]["name"],
+                "duration_minutes": round(item["track"]["duration_ms"] / 60000, 2)
+            }
+            for item in recently_played
+        ]
+    })
 if __name__ == "__main__":
     app.run(debug=True)
     
