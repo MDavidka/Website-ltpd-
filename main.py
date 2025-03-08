@@ -1,6 +1,7 @@
-from flask import Flask, request, redirect, session, jsonify, render_template
+from flask import Flask, request, redirect, session, jsonify, render_template, send_from_directory
 import requests
 import base64
+import os
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
@@ -58,6 +59,11 @@ def stats():
     return render_template("stats.html", username=user_data.get("display_name", "Unknown"),
                            profile_image=user_data["images"][0]["url"] if user_data.get("images") else "",
                            total_minutes=round(total_minutes, 2))
+
+# Statikus fájlok kezelésének biztosítása
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory(os.path.join(app.root_path, 'static'), filename)
 
 if __name__ == "__main__":
     app.run(debug=True)
