@@ -3,31 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spotify Stats</title>
-    <style>
-        /* Styles for the page */
-    </style>
+    <title>Listening Stats</title>
     <script>
-        // Polling function to update stats every 5 seconds
-        function updateStats() {
-            fetch('/stats')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('total_minutes').innerText = data.total_minutes.toFixed(2);
-                });
-        }
-
-        // Run the polling every 5 seconds
-        setInterval(updateStats, 5000);
+        // Fetch updated listening time every 10 seconds
+        setInterval(async () => {
+            const response = await fetch("/stats");
+            const data = await response.json();
+            document.getElementById("total-minutes").innerText = data.total_minutes.toFixed(2);
+        }, 10000);
     </script>
 </head>
 <body>
-    <div class="container">
-        <img src="{{ profile_image }}" alt="Profile Image" class="profile-image">
-        <div class="username">{{ username }}</div>
-        <div class="total-time">
-            Total Listening Time: <span id="total_minutes">{{ total_minutes }}</span> minutes
-        </div>
-    </div>
+    <h1>Welcome, <span id="username">{{ username }}</span>!</h1>
+    <h2>Total Listening Time: <span id="total-minutes">{{ total_minutes }}</span> minutes</h2>
 </body>
 </html>
