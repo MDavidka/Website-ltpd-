@@ -34,11 +34,11 @@ def update_user_playback_time():
         headers = {"Authorization": f"Bearer {access_token}"}
         res = requests.get(CURRENTLY_PLAYING_URL, headers=headers)
         
-        if res.status_code == 200:
+        if res.status_code == 200:  # Sikeres válasz
             data = res.json()
-            if data.get("is_playing"):  # Check if a track is currently playing
-                track_duration = data["item"]["duration_ms"] / 60000  # Convert to minutes
-                progress = data["progress_ms"] / 60000  # Convert progress to minutes
+            if data.get("is_playing"):  # Ellenőrizd, hogy éppen játszik-e
+                track_duration = data["item"]["duration_ms"] / 60000  # Percben
+                progress = data["progress_ms"] / 60000  # Percben
                 total_minutes = user.get('total_minutes', 0) + (track_duration - progress)
                 
                 # Update the total minutes in MongoDB
@@ -48,6 +48,10 @@ def update_user_playback_time():
                     upsert=True
                 )
                 print(f"Updated total minutes for {spotify_id}: {total_minutes}")
+        elif res.status_code == 204:  # Nincs aktív lejátszás
+            print(f"No active playback for {spotify_id}")
+        else:
+            print(f"Error fetching playback data for {spotify_id}: {res.status_code}")
 
 # Add a job to run every minute to fetch and update user's listening data
 scheduler.add_job(update_user_playback_time, 'interval', minutes=1)
@@ -76,16 +80,22 @@ def callback():
     res = requests.post(TOKEN_URL, data=token_data, headers=headers)
     token_json = res.json()
     
+    if "access_token" not in token_json:
+        return "Failed to retrieve access token", 400
+
     session["access_token"] = token_json.get("access_token")
     spotify_id = token_json.get("id")
     session["spotify_id"] = spotify_id
 
     # Store the user info in MongoDB
-    users_collection.insert_one({
-        "spotify_id": spotify_id,
-        "access_token": token_json.get("access_token"),
-        "total_minutes": 0
-    })
+    users_collection.update_one(
+        {"spotify_id": spotify_id},
+        {"$set": {
+            "access_token": token_json.get("access_token"),
+            "total_minutes": 0
+        }},
+        upsert=True
+    )
 
     return redirect("/stats")
 
