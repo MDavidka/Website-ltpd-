@@ -5,51 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spotify Stats</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #121212;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-            background-color: #1e1e1e;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
-            width: 300px;
-        }
-        .profile-image {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            margin-bottom: 20px;
-        }
-        .username {
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .total-time {
-            font-size: 22px;
-            margin-bottom: 30px;
-        }
-        .leaderboard {
-            margin-top: 20px;
-            text-align: left;
-            font-size: 16px;
-        }
-        .leaderboard-title {
-            font-size: 18px;
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-        .leaderboard-entry {
-            margin-bottom: 5px;
-        }
+        /* Styles for the page */
     </style>
     <script>
         // Polling function to update stats every 5 seconds
@@ -67,24 +23,10 @@
 </head>
 <body>
     <div class="container">
-        <!-- User's Profile Image -->
         <img src="{{ profile_image }}" alt="Profile Image" class="profile-image">
-        
-        <!-- User's Name -->
         <div class="username">{{ username }}</div>
-        
-        <!-- Total Listening Time -->
         <div class="total-time">
             Total Listening Time: <span id="total_minutes">{{ total_minutes }}</span> minutes
-        </div>
-
-        <!-- Leaderboard Section (optional) -->
-        <div class="leaderboard">
-            <div class="leaderboard-title">Leaderboard</div>
-            <div class="leaderboard-entry">1. User A - 1200 mins</div>
-            <div class="leaderboard-entry">2. User B - 1100 mins</div>
-            <div class="leaderboard-entry">3. User C - 1000 mins</div>
-            <!-- Add more users dynamically if needed -->
         </div>
     </div>
 </body>
