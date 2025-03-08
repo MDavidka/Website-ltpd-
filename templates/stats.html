@@ -19,6 +19,15 @@
             margin-left: 10px;
             font-size: 1.2em;
         }
+        .debug-step {
+            margin-bottom: 10px;
+        }
+        .debug-step.success {
+            color: green;
+        }
+        .debug-step.error {
+            color: red;
+        }
     </style>
     <script>
         async function fetchStats() {
@@ -34,12 +43,19 @@
                 const debugSection = document.getElementById("debug-section");
                 debugSection.innerHTML = `
                     <h3>Hibakeresés</h3>
+                    <p>Rendszer működése lépésről lépésre:</p>
+                    ${data.debug_info.map(step => `
+                        <div class="debug-step ${step.includes("✅") ? "success" : "error"}">
+                            ${step}
+                        </div>
+                    `).join("")}
+
                     <p>Utoljára hallgatott zenék:</p>
                     ${data.recently_played.map(item => `
                         <div class="track-item">
                             <strong>${item.track_name}</strong> by ${item.artist_name} 
                             (${item.duration_minutes} perc)
-                            <span class="status-icon">✅</span>
+                            <span class="status-icon">${item.status.includes("✅") ? "✅" : "❌"}</span>
                         </div>
                     `).join("")}
                 `;
