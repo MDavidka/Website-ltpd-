@@ -1,10 +1,14 @@
+<!-- templates/index.html -->
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Welcome to Spotify Login</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Login</title>
 </head>
 <body>
-    <h1>Welcome to Our Spotify Integration</h1>
-    <a href="{{ url_for('login') }}">Login with Spotify</a>
+    <h1>Spotify Login</h1>
+    <a href="{{ url_for('callback') }}">Login with Spotify</a>
 </body>
 </html>
