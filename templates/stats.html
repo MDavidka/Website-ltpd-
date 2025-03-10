@@ -1,69 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Listening Stats</title>
-    <style>
-        .debug-section {
-            margin-top: 20px;
-            padding: 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-        .debug-step {
-            margin-bottom: 10px;
-        }
-        .debug-step.success {
-            color: green;
-        }
-        .debug-step.error {
-            color: red;
-        }
-        .timestamp {
-            font-size: 0.9em;
-            color: #666;
-        }
-    </style>
-    <script>
-        async function fetchStats() {
-            try {
-                const response = await fetch("/stats");
-                if (!response.ok) {
-                    throw new Error("Failed to fetch stats");
-                }
-                const data = await response.json();
-                document.getElementById("total-minutes").innerText = data.total_minutes.toFixed(2);
-
-                // Update debug section
-                const debugSection = document.getElementById("debug-section");
-                debugSection.innerHTML = `
-                    <h3>Hibakeresés</h3>
-                    <p>Legutóbbi 10 esemény:</p>
-                    ${data.debug_info.map(step => `
-                        <div class="debug-step ${step.message.includes("✅") ? "success" : "error"}">
-                            <span class="timestamp">${step.timestamp}</span> - ${step.message}
-                        </div>
-                    `).join("")}
-                `;
-            } catch (error) {
-                console.error("Error fetching stats:", error);
-            }
-        }
-
-        // Frissítsd az adatokat minden 10 másodpercben
-        setInterval(fetchStats, 10000);
-        fetchStats();  // Az oldal betöltésekor azonnal frissítsd az adatokat
-    </script>
+    <title>Spotify Dashboard</title>
 </head>
 <body>
-    <h1>Welcome, <span id="username">{{ username }}</span>!</h1>
-    <h2>Total Listening Time: <span id="total-minutes">{{ total_minutes }}</span> minutes</h2>
-
-    <!-- Hibakeresési szekció -->
-    <div id="debug-section" class="debug-section">
-        <p>Hibakeresési információk betöltése...</p>
-    </div>
+    <h1>Welcome, {{ user['display_name'] }}</h1>
+    <p>Currently Playing: {{ playback['item']['name'] }} by {{ playback['item']['artists'][0]['name'] }}</p>
+    <p>Stream Count: {{ playback['progress_ms'] // 60000 }} minutes</p>
 </body>
 </html>
