@@ -1,10 +1,92 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Spotify Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Stats</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #191414; /* Spotify black */
+      color: #FFFFFF;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .stats-container {
+      background-color: #282828; /* Dark gray */
+      padding: 2rem;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      max-width: 400px;
+      width: 100%;
+    }
+    h1 {
+      margin-bottom: 1.5rem;
+      color: #1DB954; /* Spotify green */
+    }
+    .stats-item {
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+    }
+    .logout-button {
+      background-color: #1DB954;
+      color: #FFFFFF;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      margin-top: 1.5rem;
+    }
+    .logout-button:hover {
+      background-color: #1ED760; /* Lighter green */
+    }
+  </style>
 </head>
 <body>
-    <h1>Welcome, {{ user['display_name'] }}</h1>
-    <p>Total Listening Time: {{ total_minutes }} minutes</p>
+  <div class="stats-container">
+    <h1>Your Spotify Stats</h1>
+    <div class="stats-item">
+      <strong>Total Streaming Minutes:</strong>
+      <span id="streaming-minutes">Loading...</span>
+    </div>
+    <button class="logout-button" onclick="logout()">Logout</button>
+  </div>
+
+  <script>
+    // Fetch user stats from the Flask backend
+    async function fetchStats() {
+      try {
+        const response = await fetch("/stats-data");
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById("streaming-minutes").textContent = data.streaming_minutes || 0;
+        } else {
+          console.error("Failed to fetch stats");
+        }
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+      }
+    }
+
+    // Logout function
+    function logout() {
+      fetch("/logout", { method: "POST" })
+        .then(() => {
+          window.location.href = "/"; // Redirect to the login page
+        })
+        .catch((error) => {
+          console.error("Error logging out:", error);
+        });
+    }
+
+    // Fetch stats when the page loads
+    fetchStats();
+  </script>
 </body>
 </html>
