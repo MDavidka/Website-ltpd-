@@ -11,7 +11,7 @@ app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
 # Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
 SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
-SPOTIFY_REDIRECT_URI = "https://test.ltpd.xyz/callback"
+SPOTIFY_REDIRECT_URI = "https://ltpd.xyz/callback"
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
