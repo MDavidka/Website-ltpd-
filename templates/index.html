@@ -1,12 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spotify Login</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Login</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1DB954; /* Spotify green */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .login-container {
+      background-color: #191414; /* Spotify black */
+      padding: 2rem;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    h1 {
+      color: #FFFFFF;
+      margin-bottom: 1.5rem;
+    }
+    .login-button {
+      background-color: #1DB954;
+      color: #FFFFFF;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .login-button:hover {
+      background-color: #1ED760; /* Lighter green */
+    }
+  </style>
 </head>
 <body>
-    <h1>Spotify Login</h1>
-    <a href="{{ url_for('callback') }}">Login with Spotify</a>
+  <div class="login-container">
+    <h1>Welcome to Spotify Stats</h1>
+    <button class="login-button" onclick="window.location.href='/login'">
+      Login with Spotify
+    </button>
+  </div>
 </body>
 </html>
