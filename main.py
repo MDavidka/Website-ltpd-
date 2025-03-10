@@ -20,6 +20,7 @@ MONGO_URI = "mongodb+srv://EFmTCpVa57UnGnG1:EFmTCpVa57UnGnG1@cluster0.iuxk8.mong
 client = MongoClient(MONGO_URI)
 db = client["spotify_stats"]
 users_collection = db["users"]
+logs_collection = db["logs"]  # Collection to store logs
 
 # Helper function to refresh Spotify access token
 def refresh_spotify_token(refresh_token):
@@ -34,12 +35,21 @@ def refresh_spotify_token(refresh_token):
         return response.json()["access_token"]
     return None
 
+# Function to log messages
+def log_message(message):
+    log_entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "message": message,
+    }
+    logs_collection.insert_one(log_entry)
+
 # Background task to track streaming minutes
 def track_streaming_minutes():
-    print("Running background task...")
+    log_message("Background task running...")
     for user in users_collection.find():
         user_id = user["user_id"]
         access_token = user["access_token"]
+        refresh_token = user["refresh_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
 
         # Fetch currently playing track
@@ -49,12 +59,27 @@ def track_streaming_minutes():
         if response.status_code == 200:
             track_data = response.json()
             if track_data["is_playing"]:
+                log_message(f"User {user_id} is currently playing a track.")
                 # Update streaming minutes in MongoDB
                 users_collection.update_one(
                     {"user_id": user_id},
                     {"$inc": {"streaming_minutes": 1}},
                     upsert=True,
                 )
+                log_message(f"Updated streaming minutes for user {user_id}.")
+        elif response.status_code == 401:
+            # Token expired, refresh it
+            new_access_token = refresh_spotify_token(refresh_token)
+            if new_access_token:
+                users_collection.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"access_token": new_access_token}},
+                )
+                log_message(f"Refreshed access token for user {user_id}.")
+            else:
+                log_message(f"Failed to refresh access token for user {user_id}.")
+        else:
+            log_message(f"Failed to fetch currently playing track for user {user_id}. Status code: {response.status_code}")
 
 # Initialize APScheduler
 scheduler = BackgroundScheduler()
@@ -136,6 +161,16 @@ def stats_data():
 def logout():
     session.clear()
     return jsonify({"success": True})
+
+# Logs page
+@app.route("/logs")
+def logs():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    # Fetch logs from MongoDB
+    logs = list(logs_collection.find().sort("timestamp", -1))  # Sort by timestamp descending
+    return render_template("logs.html", logs=logs)
 
 # Homepage
 @app.route("/")
