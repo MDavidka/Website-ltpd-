@@ -10,7 +10,7 @@ app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
 # Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
 SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
-SPOTIFY_REDIRECT_URI = "https://ltpd.xyz/callback"
+SPOTIFY_REDIRECT_URI = "https://test.ltpd.xyz/callback"
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
@@ -35,18 +35,19 @@ def refresh_spotify_token(refresh_token):
         return response.json()["access_token"]
     return None
 
-# Function to log messages
-def log_message(message):
+# Function to log messages with status
+def log_message(message, status="Completed"):
     log_entry = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "message": message,
+        "status": status,
     }
     logs_collection.insert_one(log_entry)
-    print(message)  # Also print to console for debugging
+    print(f"[{status}] {message}")  # Also print to console for debugging
 
 # Background task to track streaming minutes
 def track_streaming_minutes():
-    log_message("Progress started: Yes")
+    log_message("Background task started.")
     for user in users_collection.find():
         user_id = user["user_id"]
         access_token = user["access_token"]
@@ -77,7 +78,7 @@ def track_streaming_minutes():
                 if result.modified_count > 0 or result.upserted_id:
                     log_message(f"Added to total time: Yes")
                 else:
-                    log_message(f"Added to total time: No")
+                    log_message(f"Added to total time: No", status="Problem")
             else:
                 log_message(f"User {user_id} is not currently playing a track.")
         elif response.status_code == 401:
@@ -91,10 +92,10 @@ def track_streaming_minutes():
                 )
                 log_message(f"Refreshed access token for user {user_id}.")
             else:
-                log_message(f"Failed to refresh access token for user {user_id}.")
+                log_message(f"Failed to refresh access token for user {user_id}.", status="Problem")
         else:
-            log_message(f"Failed to fetch currently playing track for user {user_id}. Status code: {response.status_code}")
-    log_message("Log successfully finished: Yes")
+            log_message(f"Failed to fetch currently playing track for user {user_id}. Status code: {response.status_code}", status="Problem")
+    log_message("Background task finished.")
 
 # Initialize APScheduler
 scheduler = BackgroundScheduler()
@@ -149,7 +150,7 @@ def callback():
             )
             log_message(f"User {user_id} added to database: Yes")
             return redirect(url_for("stats"))
-    log_message("Authentication failed.")
+    log_message("Authentication failed.", status="Problem")
     return "Authentication failed."
 
 # Dashboard showing user stats
