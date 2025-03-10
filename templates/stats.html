@@ -5,7 +5,6 @@
 </head>
 <body>
     <h1>Welcome, {{ user['display_name'] }}</h1>
-    <p>Currently Playing: {{ playback['item']['name'] }} by {{ playback['item']['artists'][0]['name'] }}</p>
-    <p>Stream Count: {{ playback['progress_ms'] // 60000 }} minutes</p>
+    <p>Total Listening Time: {{ total_minutes }} minutes</p>
 </body>
 </html>
