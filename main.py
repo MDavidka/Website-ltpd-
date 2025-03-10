@@ -1,15 +1,32 @@
-from flask import Flask, redirect, request, session, render_template, url_for
-import os
+from flask import Flask, render_template, request, redirect, url_for
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from pymongo import MongoClient
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-import time
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.config['SECRET_KEY'] = 'your_secret_key'
 
-SPOTIFY_CLIENT_ID = '3baa3b2f48c14eb0b1ec3fb7b6c5b0db'
-SPOTIFY_CLIENT_SECRET = '62f4ad9723464096864224831ed841b3'
-SPOTIFY_REDIRECT_URI = 'https://test.ltpd.xyz/callback'
+# MongoDB connection
+client = MongoClient('mongodb+srv://EFmTCpVa57UnGnG1:EFmTCpVa57UnGnG1@cluster0.iuxk8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+db = client['music_streaming']
+
+# Spotify API connection
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id='3baa3b2f48c14eb0b1ec3fb7b6c5b0db',
+                                               client_secret='62f4ad9723464096864224831ed841b3',
+                                               redirect_uri='https://test.ltpd.xyz/callback'))
+
+# Login manager
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+class User(UserMixin):
+    def __init__(self, id):
+        self.id = id
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User(user_id)
 
 @app.route('/')
 def index():
@@ -17,70 +34,39 @@ def index():
 
 @app.route('/login')
 def login():
-    sp_oauth = SpotifyOAuth(
-        client_id=SPOTIFY_CLIENT_ID,
-        client_secret=SPOTIFY_CLIENT_SECRET,
-        redirect_uri=SPOTIFY_REDIRECT_URI,
-        scope='user-library-read user-read-recently-played user-top-read'
-    )
-    auth_url = sp_oauth.get_authorize_url()
-    return redirect(auth_url)
+    return render_template('login.html')
+
+@app.route('/login', methods=['POST'])
+def login_post():
+    username = request.form['username']
+    password = request.form['password']
+    user = db.users.find_one({'username': username, 'password': password})
+    if user:
+        login_user(User(user['_id']))
+        return redirect(url_for('dashboard'))
+    return 'Invalid credentials', 401
 
 @app.route('/callback')
 def callback():
-    sp_oauth = SpotifyOAuth(
-        client_id=SPOTIFY_CLIENT_ID,
-        client_secret=SPOTIFY_CLIENT_SECRET,
-        redirect_uri=SPOTIFY_REDIRECT_URI,
-        scope='user-library-read user-read-recently-played user-top-read'
-    )
-    code = request.args.get('code')
-    token_info = sp_oauth.get_access_token(code)
-    session['token_info'] = token_info
-    return redirect(url_for('total_listening_time'))
+    sp.auth_manager.get_access_token()
+    return redirect(url_for('dashboard'))
 
-def get_spotify_client():
-    token_info = session.get('token_info')
-    if not token_info:
-        return None
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user_id = current_user.id
+    user_data = db.users.find_one({'_id': user_id})
+    streaming_time = user_data.get('streaming_time', 0)
+    return render_template('dashboard.html', streaming_time=streaming_time)
 
-    now = int(time.time())
-    if token_info['expires_at'] - now < 60:
-        sp_oauth = SpotifyOAuth(
-            client_id=SPOTIFY_CLIENT_ID,
-            client_secret=SPOTIFY_CLIENT_SECRET,
-            redirect_uri=SPOTIFY_REDIRECT_URI,
-            scope='user-library-read user-read-recently-played user-top-read'
-        )
-        token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
-        session['token_info'] = token_info
-
-    return spotipy.Spotify(auth=token_info['access_token'])
-
-@app.route('/total_listening_time')
-def total_listening_time():
-    sp = get_spotify_client()
-    if not sp:
-        return redirect(url_for('login'))
-
-    total_ms = 0
-    # Get recently played tracks
-    results = sp.current_user_recently_played(limit=50)
-    for item in results['items']:
-        total_ms += item['track']['duration_ms']
-
-    #Get top tracks
-    top_tracks = sp.current_user_top_tracks(limit=50, time_range='long_term')
-    for item in top_tracks['items']:
-        total_ms += item['duration_ms']
-
-    total_minutes = total_ms / (1000 * 60)
-    return render_template('total_time.html', total_minutes=total_minutes)
-
-@app.route('/logout')
-def logout():
-    session.pop('token_info', None)
-    return redirect(url_for('index'))
+@app.route('/update_streaming_time', methods=['POST'])
+@login_required
+def update_streaming_time():
+    user_id = current_user.id
+    streaming_time = request.form['streaming_time']
+    db.users.update_one({'_id': user_id}, {'$set': {'streaming_time': streaming_time}})
+    return 'Streaming time updated successfully'
 
 if __name__ == '__main__':
     app.run(debug=True)
+    
