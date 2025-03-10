@@ -68,21 +68,26 @@
           document.getElementById("streaming-minutes").textContent = data.streaming_minutes || 0;
         } else {
           console.error("Failed to fetch stats");
+          document.getElementById("streaming-minutes").textContent = "Error";
         }
       } catch (error) {
         console.error("Error fetching stats:", error);
+        document.getElementById("streaming-minutes").textContent = "Error";
       }
     }
 
     // Logout function
-    function logout() {
-      fetch("/logout", { method: "POST" })
-        .then(() => {
+    async function logout() {
+      try {
+        const response = await fetch("/logout", { method: "POST" });
+        if (response.ok) {
           window.location.href = "/"; // Redirect to the login page
-        })
-        .catch((error) => {
-          console.error("Error logging out:", error);
-        });
+        } else {
+          console.error("Failed to logout");
+        }
+      } catch (error) {
+        console.error("Error logging out:", error);
+      }
     }
 
     // Fetch stats when the page loads
