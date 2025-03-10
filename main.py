@@ -1,147 +1,86 @@
-from flask import Flask, request, redirect, session, render_template, jsonify
-import requests
-import base64
-from pymongo import MongoClient
-from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime
+from flask import Flask, redirect, request, session, render_template, url_for
+import os
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+import time
 
-# Flask application initialization
 app = Flask(__name__)
-app.secret_key = "your_secret_key"
+app.secret_key = os.urandom(24)
 
-# MongoDB connection
-client = MongoClient("mongodb+srv://EFmTCpVa57UnGnG1:EFmTCpVa57UnGnG1@cluster0.iuxk8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-db = client['spotify_data']
-users_collection = db['users']
+SPOTIFY_CLIENT_ID = '3baa3b2f48c14eb0b1ec3fb7b6c5b0db'
+SPOTIFY_CLIENT_SECRET = '62f4ad9723464096864224831ed841b3'
+SPOTIFY_REDIRECT_URI = 'https://test.ltpd.xyz/callback'
 
-# Spotify API credentials
-SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
-SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
-REDIRECT_URI = "https://ltpd.xyz/callback"
-AUTH_URL = "https://accounts.spotify.com/authorize"
-TOKEN_URL = "https://accounts.spotify.com/api/token"
-RECENTLY_PLAYED_URL = "https://api.spotify.com/v1/me/player/recently-played"
-
-# Initialize the scheduler
-scheduler = BackgroundScheduler()
-
-def update_user_playback_time():
-    """Fetch user’s recently played tracks and update MongoDB"""
-    print("Running scheduled task...")
-    for user in users_collection.find({}):  # Iterate over all users in the database
-        spotify_id = user['spotify_id']
-        access_token = user['access_token']
-        
-        headers = {"Authorization": f"Bearer {access_token}"}
-        try:
-            # Fetch recently played tracks
-            res = requests.get(RECENTLY_PLAYED_URL, headers=headers, params={"limit": 50})
-            if res.status_code == 200:
-                data = res.json()
-                total_minutes = user.get('total_minutes', 0)
-                debug_info = user.get('debug_info', [])  # Load existing debug info
-
-                # Add the duration of all recently played tracks
-                for item in data.get("items", []):
-                    track_name = item["track"]["name"]
-                    artist_name = item["track"]["artists"][0]["name"]
-                    track_duration = item["track"]["duration_ms"] / 60000  # Convert to minutes
-                    total_minutes += track_duration
-
-                    # Log the addition of this track
-                    debug_info.append({
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "message": f"✅ {track_name} by {artist_name} hozzáadva: {track_duration:.2f} perc"
-                    })
-
-                # Update the total minutes and debug info in MongoDB
-                users_collection.update_one(
-                    {"spotify_id": spotify_id},
-                    {"$set": {
-                        "total_minutes": total_minutes,
-                        "debug_info": debug_info[-10:]  # Keep only the last 10 entries
-                    }},
-                    upsert=True
-                )
-                print(f"Updated total minutes for {spotify_id}: {total_minutes}")
-            else:
-                print(f"Error fetching recently played tracks for {spotify_id}: {res.status_code}")
-        except Exception as e:
-            print(f"Exception occurred for {spotify_id}: {e}")
-
-# Add a job to run every minute to fetch and update user's listening data
-scheduler.add_job(update_user_playback_time, 'interval', minutes=1)
-scheduler.start()
-
-@app.route("/")
+@app.route('/')
 def index():
-    return redirect(f"{AUTH_URL}?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={REDIRECT_URI}&scope=user-read-recently-played user-read-email user-read-private")
+    return render_template('index.html')
 
-@app.route("/callback")
+@app.route('/login')
+def login():
+    sp_oauth = SpotifyOAuth(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET,
+        redirect_uri=SPOTIFY_REDIRECT_URI,
+        scope='user-library-read user-read-recently-played user-top-read'
+    )
+    auth_url = sp_oauth.get_authorize_url()
+    return redirect(auth_url)
+
+@app.route('/callback')
 def callback():
-    code = request.args.get("code")
-    auth_str = f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
-    b64_auth_str = base64.b64encode(auth_str.encode()).decode()
+    sp_oauth = SpotifyOAuth(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET,
+        redirect_uri=SPOTIFY_REDIRECT_URI,
+        scope='user-library-read user-read-recently-played user-top-read'
+    )
+    code = request.args.get('code')
+    token_info = sp_oauth.get_access_token(code)
+    session['token_info'] = token_info
+    return redirect(url_for('total_listening_time'))
 
-    token_data = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": REDIRECT_URI
-    }
-    headers = {
-        "Authorization": f"Basic " + b64_auth_str,
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
+def get_spotify_client():
+    token_info = session.get('token_info')
+    if not token_info:
+        return None
 
-    try:
-        res = requests.post(TOKEN_URL, data=token_data, headers=headers)
-        res.raise_for_status()  # Raise an error for bad status codes
-        token_json = res.json()
-        
-        if "access_token" not in token_json:
-            return "Failed to retrieve access token", 400
-
-        session["access_token"] = token_json.get("access_token")
-        spotify_id = token_json.get("id")
-        session["spotify_id"] = spotify_id
-
-        # Store the user info in MongoDB
-        users_collection.update_one(
-            {"spotify_id": spotify_id},
-            {"$set": {
-                "access_token": token_json.get("access_token"),
-                "total_minutes": 0,
-                "debug_info": []  # Initialize debug info
-            }},
-            upsert=True
+    now = int(time.time())
+    if token_info['expires_at'] - now < 60:
+        sp_oauth = SpotifyOAuth(
+            client_id=SPOTIFY_CLIENT_ID,
+            client_secret=SPOTIFY_CLIENT_SECRET,
+            redirect_uri=SPOTIFY_REDIRECT_URI,
+            scope='user-library-read user-read-recently-played user-top-read'
         )
+        token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
+        session['token_info'] = token_info
 
-        return redirect("/stats")
-    except Exception as e:
-        return f"Error during callback: {e}", 500
+    return spotipy.Spotify(auth=token_info['access_token'])
 
-@app.route("/stats")
-def stats():
-    token = session.get("access_token")
-    if not token:
-        return redirect("/")  
+@app.route('/total_listening_time')
+def total_listening_time():
+    sp = get_spotify_client()
+    if not sp:
+        return redirect(url_for('login'))
 
-    headers = {"Authorization": f"Bearer {token}"}
-    try:
-        res = requests.get("https://api.spotify.com/v1/me", headers=headers)
-        res.raise_for_status()
-        user_data = res.json()
+    total_ms = 0
+    # Get recently played tracks
+    results = sp.current_user_recently_played(limit=50)
+    for item in results['items']:
+        total_ms += item['track']['duration_ms']
 
-        total_minutes = 0
-        debug_info = []
-        user_in_db = users_collection.find_one({"spotify_id": session.get("spotify_id")})
-        if user_in_db:
-            total_minutes = user_in_db.get('total_minutes', 0)
-            debug_info = user_in_db.get('debug_info', [])
+    #Get top tracks
+    top_tracks = sp.current_user_top_tracks(limit=50, time_range='long_term')
+    for item in top_tracks['items']:
+        total_ms += item['duration_ms']
 
-        return render_template("stats.html", username=user_data.get("display_name", "Unknown"), total_minutes=round(total_minutes, 2), debug_info=debug_info)
-    except Exception as e:
-        return f"Error fetching user data: {e}", 500
+    total_minutes = total_ms / (1000 * 60)
+    return render_template('total_time.html', total_minutes=total_minutes)
 
-if __name__ == "__main__":
-    app.run(debug=True)
+@app.route('/logout')
+def logout():
+    session.pop('token_info', None)
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
