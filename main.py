@@ -10,7 +10,7 @@ app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
 # Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
 SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
-SPOTIFY_REDIRECT_URI = "https://ltpd.xyz/callback"
+SPOTIFY_REDIRECT_URI = "https://test.ltpd.xyz/callback"
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
@@ -42,15 +42,18 @@ def log_message(message):
         "message": message,
     }
     logs_collection.insert_one(log_entry)
+    print(message)  # Also print to console for debugging
 
 # Background task to track streaming minutes
 def track_streaming_minutes():
-    log_message("Background task running...")
+    log_message("Background task started.")
     for user in users_collection.find():
         user_id = user["user_id"]
         access_token = user["access_token"]
         refresh_token = user["refresh_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
+
+        log_message(f"Checking user: {user_id}")
 
         # Fetch currently playing track
         response = requests.get(
@@ -61,14 +64,20 @@ def track_streaming_minutes():
             if track_data["is_playing"]:
                 log_message(f"User {user_id} is currently playing a track.")
                 # Update streaming minutes in MongoDB
-                users_collection.update_one(
+                result = users_collection.update_one(
                     {"user_id": user_id},
                     {"$inc": {"streaming_minutes": 1}},
                     upsert=True,
                 )
-                log_message(f"Updated streaming minutes for user {user_id}.")
+                if result.modified_count > 0 or result.upserted_id:
+                    log_message(f"Updated streaming minutes for user {user_id}.")
+                else:
+                    log_message(f"Failed to update streaming minutes for user {user_id}.")
+            else:
+                log_message(f"User {user_id} is not currently playing a track.")
         elif response.status_code == 401:
             # Token expired, refresh it
+            log_message(f"Access token expired for user {user_id}. Refreshing token...")
             new_access_token = refresh_spotify_token(refresh_token)
             if new_access_token:
                 users_collection.update_one(
@@ -132,7 +141,9 @@ def callback():
                 },
                 upsert=True,
             )
+            log_message(f"User {user_id} logged in and added to the database.")
             return redirect(url_for("stats"))
+    log_message("Authentication failed.")
     return "Authentication failed."
 
 # Dashboard showing user stats
@@ -160,6 +171,7 @@ def stats_data():
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
+    log_message("User logged out.")
     return jsonify({"success": True})
 
 # Logs page
