@@ -1,32 +1,27 @@
-from flask import Flask, render_template, request, redirect, url_for
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from pymongo import MongoClient
-import spotipy
+from flask import Flask, redirect, url_for, session, request, render_template
+from flask_pymongo import PyMongo
+from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
+import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
+app.secret_key = os.urandom(24)
 
-# MongoDB connection
-client = MongoClient('mongodb+srv://EFmTCpVa57UnGnG1:EFmTCpVa57UnGnG1@cluster0.iuxk8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
-db = client['music_streaming']
+# MongoDB configuration
+app.config["MONGO_URI"] = "mongodb+srv://EFmTCpVa57UnGnG1:EFmTCpVa57UnGnG1@cluster0.iuxk8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+mongo = PyMongo(app)
 
-# Spotify API connection
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id='3baa3b2f48c14eb0b1ec3fb7b6c5b0db',
-                                               client_secret='62f4ad9723464096864224831ed841b3',
-                                               redirect_uri='https://test.ltpd.xyz/callback'))
+# Spotify API credentials
+SPOTIPY_CLIENT_ID = '3baa3b2f48c14eb0b1ec3fb7b6c5b0db'
+SPOTIPY_CLIENT_SECRET = '62f4ad9723464096864224831ed841b3'
+SPOTIPY_REDIRECT_URI = 'http://localhost:5000/callback'  # Change this to your actual redirect URI
 
-# Login manager
-login_manager = LoginManager()
-login_manager.init_app(app)
-
-class User(UserMixin):
-    def __init__(self, id):
-        self.id = id
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User(user_id)
+sp_oauth = SpotifyOAuth(
+    SPOTIPY_CLIENT_ID,
+    SPOTIPY_CLIENT_SECRET,
+    SPOTIPY_REDIRECT_URI,
+    scope="user-read-private user-read-playback-state user-read-currently-playing"
+)
 
 @app.route('/')
 def index():
@@ -34,39 +29,26 @@ def index():
 
 @app.route('/login')
 def login():
-    return render_template('login.html')
-
-@app.route('/login', methods=['POST'])
-def login_post():
-    username = request.form['username']
-    password = request.form['password']
-    user = db.users.find_one({'username': username, 'password': password})
-    if user:
-        login_user(User(user['_id']))
-        return redirect(url_for('dashboard'))
-    return 'Invalid credentials', 401
+    auth_url = sp_oauth.get_authorize_url()
+    return redirect(auth_url)
 
 @app.route('/callback')
 def callback():
-    sp.auth_manager.get_access_token()
-    return redirect(url_for('dashboard'))
+    session.clear()
+    code = request.args.get('code')
+    token_info = sp_oauth.get_access_token(code)
+    session["token_info"] = token_info
+    return redirect(url_for('stats'))
 
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    user_id = current_user.id
-    user_data = db.users.find_one({'_id': user_id})
-    streaming_time = user_data.get('streaming_time', 0)
-    return render_template('dashboard.html', streaming_time=streaming_time)
-
-@app.route('/update_streaming_time', methods=['POST'])
-@login_required
-def update_streaming_time():
-    user_id = current_user.id
-    streaming_time = request.form['streaming_time']
-    db.users.update_one({'_id': user_id}, {'$set': {'streaming_time': streaming_time}})
-    return 'Streaming time updated successfully'
+@app.route('/stats')
+def stats():
+    token_info = session.get("token_info", None)
+    if not token_info:
+        return redirect(url_for('login'))
+    sp = Spotify(auth=token_info['access_token'])
+    user_profile = sp.current_user()
+    current_playback = sp.current_playback()
+    return render_template('stats.html', user=user_profile, playback=current_playback)
 
 if __name__ == '__main__':
     app.run(debug=True)
-    
