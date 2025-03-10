@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logs</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #191414; /* Spotify black */
+      color: #FFFFFF;
+      padding: 20px;
+    }
+    h1 {
+      color: #1DB954; /* Spotify green */
+    }
+    .log-container {
+      background-color: #282828; /* Dark gray */
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    .log-entry {
+      margin-bottom: 10px;
+      padding: 10px;
+      background-color: #333333;
+      border-radius: 5px;
+    }
+    .log-timestamp {
+      color: #1DB954;
+      font-weight: bold;
+    }
+    .log-message {
+      color: #FFFFFF;
+    }
+  </style>
+</head>
+<body>
+  <h1>Background Task Logs</h1>
+  <div class="log-container">
+    {% for log in logs %}
+      <div class="log-entry">
+        <div class="log-timestamp">{{ log.timestamp }}</div>
+        <div class="log-message">{{ log.message }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</body>
+</html>
