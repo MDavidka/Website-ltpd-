@@ -1,9 +1,8 @@
 from flask import Flask, redirect, request, session, url_for, render_template, jsonify
 import requests
 from pymongo import MongoClient
-from datetime import datetime, timedelta
-import threading
-import time
+from datetime import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
@@ -11,7 +10,7 @@ app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
 # Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
 SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
-SPOTIFY_REDIRECT_URI = "https://ltpd.xyz/callback"
+SPOTIFY_REDIRECT_URI = "https://test.ltpd.xyz/callback"
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
@@ -34,6 +33,33 @@ def refresh_spotify_token(refresh_token):
     if response.status_code == 200:
         return response.json()["access_token"]
     return None
+
+# Background task to track streaming minutes
+def track_streaming_minutes():
+    print("Running background task...")
+    for user in users_collection.find():
+        user_id = user["user_id"]
+        access_token = user["access_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        # Fetch currently playing track
+        response = requests.get(
+            f"{SPOTIFY_API_BASE_URL}/me/player/currently-playing", headers=headers
+        )
+        if response.status_code == 200:
+            track_data = response.json()
+            if track_data["is_playing"]:
+                # Update streaming minutes in MongoDB
+                users_collection.update_one(
+                    {"user_id": user_id},
+                    {"$inc": {"streaming_minutes": 1}},
+                    upsert=True,
+                )
+
+# Initialize APScheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(track_streaming_minutes, 'interval', minutes=1)  # Run every minute
+scheduler.start()
 
 # Spotify OAuth login
 @app.route("/login")
@@ -110,32 +136,6 @@ def stats_data():
 def logout():
     session.clear()
     return jsonify({"success": True})
-
-# Background task to track streaming minutes
-def track_streaming_minutes():
-    while True:
-        time.sleep(60)  # Check every minute
-        for user in users_collection.find():
-            user_id = user["user_id"]
-            access_token = user["access_token"]
-            headers = {"Authorization": f"Bearer {access_token}"}
-
-            # Fetch currently playing track
-            response = requests.get(
-                f"{SPOTIFY_API_BASE_URL}/me/player/currently-playing", headers=headers
-            )
-            if response.status_code == 200:
-                track_data = response.json()
-                if track_data["is_playing"]:
-                    # Update streaming minutes in MongoDB
-                    users_collection.update_one(
-                        {"user_id": user_id},
-                        {"$inc": {"streaming_minutes": 1}},
-                        upsert=True,
-                    )
-
-# Start background thread for tracking
-threading.Thread(target=track_streaming_minutes, daemon=True).start()
 
 # Homepage
 @app.route("/")
