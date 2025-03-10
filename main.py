@@ -10,7 +10,7 @@ app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
 # Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
 SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
-SPOTIFY_REDIRECT_URI = "https://ltpd.xyz/callback"
+SPOTIFY_REDIRECT_URI = "https://test.ltpd.xyz/callback"
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
@@ -46,7 +46,7 @@ def log_message(message):
 
 # Background task to track streaming minutes
 def track_streaming_minutes():
-    log_message("Background task started.")
+    log_message("Progress started: Yes")
     for user in users_collection.find():
         user_id = user["user_id"]
         access_token = user["access_token"]
@@ -63,6 +63,11 @@ def track_streaming_minutes():
             track_data = response.json()
             if track_data["is_playing"]:
                 log_message(f"User {user_id} is currently playing a track.")
+                # Get track duration in minutes
+                track_duration_ms = track_data["item"]["duration_ms"]
+                track_duration_min = track_duration_ms / 60000  # Convert to minutes
+                log_message(f"Last music length: {track_duration_min:.2f} minutes")
+
                 # Update streaming minutes in MongoDB
                 result = users_collection.update_one(
                     {"user_id": user_id},
@@ -70,9 +75,9 @@ def track_streaming_minutes():
                     upsert=True,
                 )
                 if result.modified_count > 0 or result.upserted_id:
-                    log_message(f"Updated streaming minutes for user {user_id}.")
+                    log_message(f"Added to total time: Yes")
                 else:
-                    log_message(f"Failed to update streaming minutes for user {user_id}.")
+                    log_message(f"Added to total time: No")
             else:
                 log_message(f"User {user_id} is not currently playing a track.")
         elif response.status_code == 401:
@@ -89,6 +94,7 @@ def track_streaming_minutes():
                 log_message(f"Failed to refresh access token for user {user_id}.")
         else:
             log_message(f"Failed to fetch currently playing track for user {user_id}. Status code: {response.status_code}")
+    log_message("Log successfully finished: Yes")
 
 # Initialize APScheduler
 scheduler = BackgroundScheduler()
@@ -141,7 +147,7 @@ def callback():
                 },
                 upsert=True,
             )
-            log_message(f"User {user_id} logged in and added to the database.")
+            log_message(f"User {user_id} added to database: Yes")
             return redirect(url_for("stats"))
     log_message("Authentication failed.")
     return "Authentication failed."
