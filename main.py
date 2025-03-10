@@ -95,8 +95,7 @@ def track_streaming_minutes():
                 log_message(f"Failed to refresh access token for user {user_id}.", status="Problem")
         else:
             log_message(f"Failed to fetch currently playing track for user {user_id}. Status code: {response.status_code}", status="Problem")
-    log_message("Background task finished.")
-
+    log_message("Background task finished.")#
 # Initialize APScheduler
 scheduler = BackgroundScheduler()
 scheduler.add_job(track_streaming_minutes, 'interval', minutes=1)  # Run every minute
