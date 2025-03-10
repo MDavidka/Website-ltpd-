@@ -1,78 +1,131 @@
-# main.py
-
-from flask import Flask, render_template, request, redirect, url_for
-from flask_pymongo import PyMongo
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-import os
-import time
+from flask import Flask, redirect, request, session, url_for, render_template
+import requests
+from pymongo import MongoClient
+from datetime import datetime, timedelta
 import threading
+import time
 
 app = Flask(__name__)
+app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
 
-# MongoDB Connection
-app.config["MONGO_URI"] = "mongodb+srv://EFmTCpVa57UnGnG1:EFmTCpVa57UnGnG1@cluster0.iuxk8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-mongo = PyMongo(app)
-
-# Spotify API Credentials
+# Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
 SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
-SPOTIFY_REDIRECT_URI = "https://ltpd.xyz/callback"
+SPOTIFY_REDIRECT_URI = "https://test.ltpd.xyz/callback"
+SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
+SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
+SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
 
-# Spotify OAuth
-scope = "user-read-playback-state,user-read-currently-playing"
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=SPOTIFY_CLIENT_ID,
-                                               client_secret=SPOTIFY_CLIENT_SECRET,
-                                               redirect_uri=SPOTIFY_REDIRECT_URI,
-                                               scope=scope))
+# MongoDB connection
+MONGO_URI = "mongodb+srv://EFmTCpVa57UnGnG1:EFmTCpVa57UnGnG1@cluster0.iuxk8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+client = MongoClient(MONGO_URI)
+db = client["spotify_stats"]
+users_collection = db["users"]
 
-# Function to track user streaming minutes
-def track_streaming_minutes(user_id):
-    while True:
-        try:
-            # Get current playback state
-            playback_state = sp.current_playback()
-            if playback_state:
-                # Get current track duration and progress
-                track_duration = playback_state["item"]["duration_ms"]
-                progress = playback_state["progress_ms"]
-                # Calculate streaming minutes
-                streaming_minutes = (progress / 1000) / 60
-                # Update user data in MongoDB
-                mongo.db.users.update_one({"_id": user_id}, {"$inc": {"streaming_minutes": streaming_minutes}})
-            else:
-                # If no playback state, reset streaming minutes
-                mongo.db.users.update_one({"_id": user_id}, {"$set": {"streaming_minutes": 0}})
-        except Exception as e:
-            print(f"Error tracking streaming minutes: {e}")
-        time.sleep(60)  # Track every minute
+# Helper function to refresh Spotify access token
+def refresh_spotify_token(refresh_token):
+    payload = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": SPOTIFY_CLIENT_ID,
+        "client_secret": SPOTIFY_CLIENT_SECRET,
+    }
+    response = requests.post(SPOTIFY_TOKEN_URL, data=payload)
+    if response.status_code == 200:
+        return response.json()["access_token"]
+    return None
 
-# Route for Spotify login
+# Spotify OAuth login
 @app.route("/login")
 def login():
-    return render_template("index.html")
+    auth_url = f"{SPOTIFY_AUTH_URL}?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={SPOTIFY_REDIRECT_URI}&scope=user-read-currently-playing user-read-recently-played"
+    return redirect(auth_url)
 
-# Route for Spotify callback
+# Spotify OAuth callback
 @app.route("/callback")
 def callback():
-    # Get user ID from Spotify
-    user_id = sp.me()["id"]
-    # Create or update user data in MongoDB
-    user_data = mongo.db.users.find_one({"_id": user_id})
-    if not user_data:
-        mongo.db.users.insert_one({"_id": user_id, "streaming_minutes": 0})
-    # Start tracking streaming minutes in a separate thread
-    threading.Thread(target=track_streaming_minutes, args=(user_id,)).start()
-    return redirect(url_for("stats"))
+    code = request.args.get("code")
+    payload = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": SPOTIFY_REDIRECT_URI,
+        "client_id": SPOTIFY_CLIENT_ID,
+        "client_secret": SPOTIFY_CLIENT_SECRET,
+    }
+    response = requests.post(SPOTIFY_TOKEN_URL, data=payload)
+    if response.status_code == 200:
+        token_data = response.json()
+        session["access_token"] = token_data["access_token"]
+        session["refresh_token"] = token_data["refresh_token"]
+        session["expires_at"] = datetime.now().timestamp() + token_data["expires_in"]
 
-# Route for user stats
+        # Fetch user profile
+        headers = {"Authorization": f"Bearer {session['access_token']}"}
+        user_response = requests.get(f"{SPOTIFY_API_BASE_URL}/me", headers=headers)
+        if user_response.status_code == 200:
+            user_data = user_response.json()
+            user_id = user_data["id"]
+            session["user_id"] = user_id
+
+            # Save or update user in MongoDB
+            users_collection.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "user_id": user_id,
+                        "access_token": session["access_token"],
+                        "refresh_token": session["refresh_token"],
+                        "expires_at": session["expires_at"],
+                    }
+                },
+                upsert=True,
+            )
+            return redirect(url_for("stats"))
+    return "Authentication failed."
+
+# Dashboard showing user stats
 @app.route("/stats")
 def stats():
-    # Get user ID from Spotify
-    user_id = sp.me()["id"]
-    # Get user data from MongoDB
-    user_data = mongo.db.users.find_one({"_id": user_id})
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    user_id = session["user_id"]
+    user_data = users_collection.find_one({"user_id": user_id})
+    if not user_data:
+        return redirect(url_for("login"))
+
     return render_template("stats.html", user_data=user_data)
+
+# Background task to track streaming minutes
+def track_streaming_minutes():
+    while True:
+        time.sleep(60)  # Check every minute
+        for user in users_collection.find():
+            user_id = user["user_id"]
+            access_token = user["access_token"]
+            headers = {"Authorization": f"Bearer {access_token}"}
+
+            # Fetch currently playing track
+            response = requests.get(
+                f"{SPOTIFY_API_BASE_URL}/me/player/currently-playing", headers=headers
+            )
+            if response.status_code == 200:
+                track_data = response.json()
+                if track_data["is_playing"]:
+                    # Update streaming minutes in MongoDB
+                    users_collection.update_one(
+                        {"user_id": user_id},
+                        {"$inc": {"streaming_minutes": 1}},
+                        upsert=True,
+                    )
+
+# Start background thread for tracking
+threading.Thread(target=track_streaming_minutes, daemon=True).start()
+
+# Homepage
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 if __name__ == "__main__":
     app.run(debug=True)
