@@ -14,7 +14,7 @@ mongo = PyMongo(app)
 # Spotify API credentials
 SPOTIPY_CLIENT_ID = '3baa3b2f48c14eb0b1ec3fb7b6c5b0db'
 SPOTIPY_CLIENT_SECRET = '62f4ad9723464096864224831ed841b3'
-SPOTIPY_REDIRECT_URI = 'http://localhost:5000/callback'  # Change this to your actual redirect URI
+SPOTIPY_REDIRECT_URI = 'http://ltpd.xyz/callback'  # Change this to your actual redirect URI
 
 sp_oauth = SpotifyOAuth(
     SPOTIPY_CLIENT_ID,
