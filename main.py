@@ -6,7 +6,7 @@ import threading
 import time
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
+app.secret_key = "dhjrhr"  # Replace with a secure secret key
 
 # Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
