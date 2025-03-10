@@ -1,4 +1,3 @@
-import logging
 from flask import Flask, redirect, url_for, session, request, render_template
 from flask_pymongo import PyMongo
 from spotipy import Spotify
@@ -8,10 +7,8 @@ import time
 import threading
 from flask_session import Session
 
-# Initialize Flask app and configure logging
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-logging.basicConfig(level=logging.DEBUG)
 
 # Session configuration
 app.config["SESSION_TYPE"] = "filesystem"
@@ -80,21 +77,17 @@ def callback():
 
 @app.route('/stats')
 def stats():
-    try:
-        token_info = session.get("token_info", None)
-        if not token_info:
-            return redirect(url_for('login'))
-        if sp_oauth.is_token_expired(token_info):
-            token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
-            session["token_info"] = token_info
-        sp = Spotify(auth=token_info['access_token'])
-        user_profile = sp.current_user()
-        user_data = mongo.db.users.find_one({"user_id": user_profile['id']})
-        total_minutes = user_data['total_minutes'] if user_data else 0
-        return render_template('stats.html', user=user_profile, total_minutes=total_minutes)
-    except Exception as e:
-        logging.error(f"Error in /stats route: {e}")
-        return "An error occurred", 500
+    token_info = session.get("token_info", None)
+    if not token_info:
+        return redirect(url_for('login'))
+    if sp_oauth.is_token_expired(token_info):
+        token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
+        session["token_info"] = token_info
+    sp = Spotify(auth=token_info['access_token'])
+    user_profile = sp.current_user()
+    user_data = mongo.db.users.find_one({"user_id": user_profile['id']})
+    total_minutes = user_data['total_minutes'] if user_data else 0
+    return render_template('stats.html', user=user_profile, total_minutes=total_minutes)
 
 if __name__ == '__main__':
     app.run(debug=True)
