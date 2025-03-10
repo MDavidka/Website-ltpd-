@@ -47,14 +47,14 @@ def log_message(message, status="Completed"):
 
 # Background task to track streaming minutes
 def track_streaming_minutes():
-    log_message("Background task started.")
+    log_message("Background task started.", status="Completed")
     for user in users_collection.find():
         user_id = user["user_id"]
         access_token = user["access_token"]
         refresh_token = user["refresh_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
 
-        log_message(f"Checking user: {user_id}")
+        log_message(f"Checking user: {user_id}", status="Completed")
 
         # Fetch currently playing track
         response = requests.get(
@@ -63,11 +63,11 @@ def track_streaming_minutes():
         if response.status_code == 200:
             track_data = response.json()
             if track_data["is_playing"]:
-                log_message(f"User {user_id} is currently playing a track.")
+                log_message(f"User {user_id} is currently playing a track.", status="Completed")
                 # Get track duration in minutes
                 track_duration_ms = track_data["item"]["duration_ms"]
                 track_duration_min = track_duration_ms / 60000  # Convert to minutes
-                log_message(f"Last music length: {track_duration_min:.2f} minutes")
+                log_message(f"Last music length: {track_duration_min:.2f} minutes", status="Completed")
 
                 # Update streaming minutes in MongoDB
                 result = users_collection.update_one(
@@ -76,27 +76,27 @@ def track_streaming_minutes():
                     upsert=True,
                 )
                 if result.modified_count > 0 or result.upserted_id:
-                    log_message(f"Added to total time: Yes")
+                    log_message(f"Added to total time: Yes", status="Completed")
                 else:
                     log_message(f"Added to total time: No", status="Problem")
             else:
-                log_message(f"User {user_id} is not currently playing a track.")
+                log_message(f"User {user_id} is not currently playing a track.", status="Completed")
         elif response.status_code == 401:
             # Token expired, refresh it
-            log_message(f"Access token expired for user {user_id}. Refreshing token...")
+            log_message(f"Access token expired for user {user_id}. Refreshing token...", status="Problem")
             new_access_token = refresh_spotify_token(refresh_token)
             if new_access_token:
                 users_collection.update_one(
                     {"user_id": user_id},
                     {"$set": {"access_token": new_access_token}},
                 )
-                log_message(f"Refreshed access token for user {user_id}.")
+                log_message(f"Refreshed access token for user {user_id}.", status="Completed")
             else:
                 log_message(f"Failed to refresh access token for user {user_id}.", status="Problem")
         else:
             log_message(f"Failed to fetch currently playing track for user {user_id}. Status code: {response.status_code}", status="Problem")
-    log_message("Background task finished.")#
-# Initialize APScheduler
+    log_message("Background task finished.", status="Completed")
+    
 scheduler = BackgroundScheduler()
 scheduler.add_job(track_streaming_minutes, 'interval', minutes=1)  # Run every minute
 scheduler.start()
