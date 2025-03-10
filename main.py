@@ -1,3 +1,4 @@
+import logging
 from flask import Flask, redirect, url_for, session, request, render_template
 from flask_pymongo import PyMongo
 from spotipy import Spotify
@@ -7,8 +8,10 @@ import time
 import threading
 from flask_session import Session
 
+# Initialize Flask app and configure logging
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+logging.basicConfig(level=logging.DEBUG)
 
 # Session configuration
 app.config["SESSION_TYPE"] = "filesystem"
@@ -33,24 +36,27 @@ sp_oauth = SpotifyOAuth(
 def update_listening_time():
     while True:
         with app.app_context():
-            token_info = session.get("token_info", None)
-            if token_info:
-                sp = Spotify(auth=token_info['access_token'])
-                playback = sp.current_playback()
-                if playback and playback['is_playing']:
-                    track_id = playback['item']['id']
-                    user_id = sp.current_user()['id']
-                    user_data = mongo.db.users.find_one({"user_id": user_id})
-                    if not user_data:
-                        mongo.db.users.insert_one({"user_id": user_id, "total_minutes": 0})
-                    else:
-                        if 'last_track_id' in user_data and user_data['last_track_id'] != track_id:
-                            track_duration_ms = playback['item']['duration_ms']
-                            minutes_played = track_duration_ms // 60000
-                            mongo.db.users.update_one(
-                                {"user_id": user_id},
-                                {"$inc": {"total_minutes": minutes_played}, "$set": {"last_track_id": track_id}}
-                            )
+            try:
+                token_info = session.get("token_info", None)
+                if token_info:
+                    sp = Spotify(auth=token_info['access_token'])
+                    playback = sp.current_playback()
+                    if playback and playback['is_playing']:
+                        track_id = playback['item']['id']
+                        user_id = sp.current_user()['id']
+                        user_data = mongo.db.users.find_one({"user_id": user_id})
+                        if not user_data:
+                            mongo.db.users.insert_one({"user_id": user_id, "total_minutes": 0})
+                        else:
+                            if 'last_track_id' in user_data and user_data['last_track_id'] != track_id:
+                                track_duration_ms = playback['item']['duration_ms']
+                                minutes_played = track_duration_ms // 60000
+                                mongo.db.users.update_one(
+                                    {"user_id": user_id},
+                                    {"$inc": {"total_minutes": minutes_played}, "$set": {"last_track_id": track_id}}
+                                )
+            except Exception as e:
+                logging.error(f"Error updating listening time: {e}")
             time.sleep(60)
 
 threading.Thread(target=update_listening_time).start()
@@ -74,17 +80,21 @@ def callback():
 
 @app.route('/stats')
 def stats():
-    token_info = session.get("token_info", None)
-    if not token_info:
-        return redirect(url_for('login'))
-    if sp_oauth.is_token_expired(token_info):
-        token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
-        session["token_info"] = token_info
-    sp = Spotify(auth=token_info['access_token'])
-    user_profile = sp.current_user()
-    user_data = mongo.db.users.find_one({"user_id": user_profile['id']})
-    total_minutes = user_data['total_minutes'] if user_data else 0
-    return render_template('stats.html', user=user_profile, total_minutes=total_minutes)
+    try:
+        token_info = session.get("token_info", None)
+        if not token_info:
+            return redirect(url_for('login'))
+        if sp_oauth.is_token_expired(token_info):
+            token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
+            session["token_info"] = token_info
+        sp = Spotify(auth=token_info['access_token'])
+        user_profile = sp.current_user()
+        user_data = mongo.db.users.find_one({"user_id": user_profile['id']})
+        total_minutes = user_data['total_minutes'] if user_data else 0
+        return render_template('stats.html', user=user_profile, total_minutes=total_minutes)
+    except Exception as e:
+        logging.error(f"Error in /stats route: {e}")
+        return "An error occurred", 500
 
 if __name__ == '__main__':
     app.run(debug=True)
