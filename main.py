@@ -1,4 +1,4 @@
-from flask import Flask, redirect, request, session, url_for, render_template
+from flask import Flask, redirect, request, session, url_for, render_template, jsonify
 import requests
 from pymongo import MongoClient
 from datetime import datetime, timedelta
@@ -6,12 +6,12 @@ import threading
 import time
 
 app = Flask(__name__)
-app.secret_key = "dhjrhr"  # Replace with a secure secret key
+app.secret_key = "your_secret_key_here"  # Replace with a secure secret key
 
 # Spotify API credentials
 SPOTIFY_CLIENT_ID = "3baa3b2f48c14eb0b1ec3fb7b6c5b0db"
 SPOTIFY_CLIENT_SECRET = "62f4ad9723464096864224831ed841b3"
-SPOTIFY_REDIRECT_URI = "https://ltpd.xyz/callback"
+SPOTIFY_REDIRECT_URI = "https://test.ltpd.xyz/callback"
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
@@ -76,6 +76,7 @@ def callback():
                         "access_token": session["access_token"],
                         "refresh_token": session["refresh_token"],
                         "expires_at": session["expires_at"],
+                        "streaming_minutes": 0,  # Initialize streaming minutes
                     }
                 },
                 upsert=True,
@@ -89,12 +90,26 @@ def stats():
     if "user_id" not in session:
         return redirect(url_for("login"))
 
+    return render_template("stats.html")
+
+# Endpoint to fetch streaming minutes
+@app.route("/stats-data")
+def stats_data():
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
     user_id = session["user_id"]
     user_data = users_collection.find_one({"user_id": user_id})
     if not user_data:
-        return redirect(url_for("login"))
+        return jsonify({"error": "User not found"}), 404
 
-    return render_template("stats.html", user_data=user_data)
+    return jsonify({"streaming_minutes": user_data.get("streaming_minutes", 0)})
+
+# Logout
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"success": True})
 
 # Background task to track streaming minutes
 def track_streaming_minutes():
