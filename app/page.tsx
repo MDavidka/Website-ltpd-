@@ -54,7 +54,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background pb-24">
       <div className="px-4 py-6 max-w-lg mx-auto">
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-foreground mb-1 text-balance">
@@ -70,20 +70,24 @@ export default function Home() {
             Eddig birtokolt összeg
           </p>
           <p className="text-3xl font-bold text-foreground">
-            {data.totalAmount.toLocaleString('hu-HU')} <span className="text-lg font-normal text-muted-foreground">EUR</span>
+            {data.totalAmount.toLocaleString('hu-HU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-lg font-normal text-muted-foreground">EUR</span>
           </p>
         </div>
 
         <div className="bg-card rounded-xl p-3 border border-border">
           <PaymentTable data={data} onNameClick={handleNameClick} />
         </div>
+      </div>
 
-        <Button asChild className="w-full mt-6 bg-white text-black hover:bg-white/90 border-0" size="lg">
-          <a href="https://revolut.me/davidmarton07" target="_blank" rel="noopener noreferrer">
-            <CreditCard className="mr-2 h-4 w-4" />
-            Kártyával fizetnél
-          </a>
-        </Button>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
+        <div className="max-w-lg mx-auto">
+          <Button asChild className="w-full bg-white text-black hover:bg-white/90 border-0" size="lg">
+            <a href="https://revolut.me/davidmarton07" target="_blank" rel="noopener noreferrer">
+              <CreditCard className="mr-2 h-4 w-4" />
+              Kártyával fizetnél
+            </a>
+          </Button>
+        </div>
       </div>
 
       {showAdmin && (
