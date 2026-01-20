@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { CreditCard } from 'lucide-react'
 import { PaymentTable } from '@/components/payment-table'
 import { AdminPanel } from '@/components/admin-panel'
+import { Button } from '@/components/ui/button'
 import { usePaymentData } from '@/hooks/use-payment-data'
 
 export default function Home() {
@@ -76,7 +78,12 @@ export default function Home() {
           <PaymentTable data={data} onNameClick={handleNameClick} />
         </div>
 
-
+        <Button asChild className="w-full mt-6" size="lg">
+          <a href="https://revolut.me/davidmarton07" target="_blank" rel="noopener noreferrer">
+            <CreditCard className="mr-2 h-4 w-4" />
+            Kártyával fizetnél
+          </a>
+        </Button>
       </div>
 
       {showAdmin && (
