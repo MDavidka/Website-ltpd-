@@ -70,7 +70,7 @@ export default function Home() {
             Eddig birtokolt összeg
           </p>
           <p className="text-3xl font-bold text-foreground">
-            {data.totalAmount.toLocaleString('hu-HU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-lg font-normal text-muted-foreground">EUR</span>
+            {data.totalAmount.toLocaleString('hu-HU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-lg font-normal">€</span>
           </p>
         </div>
 
