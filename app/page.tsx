@@ -78,7 +78,7 @@ export default function Home() {
           <PaymentTable data={data} onNameClick={handleNameClick} />
         </div>
 
-        <Button asChild className="w-full mt-6" size="lg">
+        <Button asChild className="w-full mt-6 bg-white text-black hover:bg-white/90 border-0" size="lg">
           <a href="https://revolut.me/davidmarton07" target="_blank" rel="noopener noreferrer">
             <CreditCard className="mr-2 h-4 w-4" />
             Kártyával fizetnél
