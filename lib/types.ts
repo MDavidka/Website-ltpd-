@@ -13,7 +13,7 @@ export const USERS = [
   { id: 'marton-david', name: 'Márton Dávid' },
   { id: 'mathe-istvan', name: 'Máthé István' },
   { id: 'szabo-timea', name: 'Szabó Tímea' },
-  { id: 'petra-krisztina', name: 'Petra Krisztina' },
+  { id: 'petra-krisztina', name: 'Petrea Krisztina' },
 ] as const
 
 export const MONTHS = [
