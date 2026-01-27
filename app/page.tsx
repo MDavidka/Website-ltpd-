@@ -1,15 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CreditCard } from 'lucide-react'
+import { CreditCard, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { PaymentTable } from '@/components/payment-table'
 import { AdminPanel } from '@/components/admin-panel'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { usePaymentData } from '@/hooks/use-payment-data'
 
 export default function Home() {
   const { data, isLoading, togglePayment, setTotalAmount } = usePaymentData()
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [clickCount, setClickCount] = useState(0)
   const [clickTimer, setClickTimer] = useState<NodeJS.Timeout | null>(null)
 
@@ -54,7 +56,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background pb-24">
+    <main className="min-h-screen bg-background pb-40">
       <div className="px-4 py-6 max-w-lg mx-auto">
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-foreground mb-1 text-balance">
@@ -72,6 +74,53 @@ export default function Home() {
           <p className="text-3xl font-bold text-foreground">
             {data.totalAmount.toLocaleString('hu-HU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-lg font-normal">€</span>
           </p>
+        </div>
+
+        <div className="bg-card rounded-xl p-4 mb-6 border border-border space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
+            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+            <p className="text-sm font-medium">
+              nincs 5.felhasznaló ezert ideiglenesen a csomag “standardon” marad.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground uppercase tracking-wide">
+                Email
+              </label>
+              <Input
+                readOnly
+                value="netflix@ltpd.xyz"
+                className="bg-muted/50 font-mono"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground uppercase tracking-wide">
+                Jelszó
+              </label>
+              <div className="relative">
+                <Input
+                  readOnly
+                  type={showPassword ? "text" : "password"}
+                  value="husbe6-donbow-keTduz"
+                  className="bg-muted/50 font-mono pr-10"
+                />
+                <button
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  type="button"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="bg-card rounded-xl p-3 border border-border">
