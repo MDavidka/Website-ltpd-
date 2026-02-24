@@ -26,13 +26,25 @@ export function usePaymentData() {
   const togglePayment = useCallback(
     (userId: string, monthId: string) => {
       if (!data) return
+
+      const currentStatus = data.payments[userId]?.[monthId] ?? false
+      let newStatus: boolean | 'late'
+
+      if (currentStatus === false) {
+        newStatus = true
+      } else if (currentStatus === true) {
+        newStatus = 'late'
+      } else {
+        newStatus = false
+      }
+
       const newData = {
         ...data,
         payments: {
           ...data.payments,
           [userId]: {
             ...data.payments[userId],
-            [monthId]: !data.payments[userId]?.[monthId],
+            [monthId]: newStatus,
           },
         },
       }

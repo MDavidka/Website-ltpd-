@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { USERS, MONTHS, AppData } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { X, Download, Check } from 'lucide-react'
+import { X, Download, Check, AlertCircle } from 'lucide-react'
 
 interface AdminPanelProps {
   data: AppData
@@ -46,6 +46,7 @@ export function AdminPanel({
         th { background: #f9f9f9; font-weight: 600; }
         th:first-child, td:first-child { text-align: left; min-width: 120px; }
         .paid { background: #22c55e; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .late { background: #ef4444; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
         .unpaid { background: #f1f1f1; padding: 4px 8px; border-radius: 4px; color: #999; }
         .footer { margin-top: 32px; font-size: 12px; color: #666; }
       </style>
@@ -53,8 +54,17 @@ export function AdminPanel({
 
     const tableRows = USERS.map(user => {
       const cells = MONTHS.map(month => {
-        const isPaid = data.payments[user.id]?.[month.id] ?? false
-        return `<td><span class="${isPaid ? 'paid' : 'unpaid'}">${isPaid ? '✓' : '—'}</span></td>`
+        const status = data.payments[user.id]?.[month.id] ?? false
+        let className = 'unpaid'
+        let content = '—'
+        if (status === true) {
+          className = 'paid'
+          content = '✓'
+        } else if (status === 'late') {
+          className = 'late'
+          content = '!'
+        }
+        return `<td><span class="${className}">${content}</span></td>`
       }).join('')
       return `<tr><td><strong>${user.name}</strong></td>${cells}</tr>`
     }).join('')
@@ -137,20 +147,23 @@ export function AdminPanel({
                     <p className="text-sm font-medium text-foreground mb-2">{user.name}</p>
                     <div className="grid grid-cols-6 gap-1.5">
                       {MONTHS.map((month) => {
-                        const isPaid = data.payments[user.id]?.[month.id] ?? false
+                        const status = data.payments[user.id]?.[month.id] ?? false
                         return (
                           <button
                             key={month.id}
                             type="button"
                             onClick={() => onTogglePayment(user.id, month.id)}
                             className={`h-10 rounded-lg text-[10px] font-medium flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 ${
-                              isPaid
+                              status === true
                                 ? 'bg-success text-background'
+                                : status === 'late'
+                                ? 'bg-destructive text-destructive-foreground'
                                 : 'bg-secondary text-muted-foreground border border-border'
                             }`}
                           >
                             <span>{month.name}</span>
-                            {isPaid && <Check className="w-3 h-3" strokeWidth={3} />}
+                            {status === true && <Check className="w-3 h-3" strokeWidth={3} />}
+                            {status === 'late' && <AlertCircle className="w-3 h-3" strokeWidth={3} />}
                           </button>
                         )
                       })}

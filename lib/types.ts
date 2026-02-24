@@ -1,6 +1,6 @@
 export interface PaymentData {
   [userId: string]: {
-    [month: string]: boolean
+    [month: string]: boolean | 'late'
   }
 }
 
@@ -39,7 +39,7 @@ export function getInitialData(): AppData {
       acc[user.id] = MONTHS.reduce((monthAcc, month) => {
         monthAcc[month.id] = false
         return monthAcc
-      }, {} as { [month: string]: boolean })
+      }, {} as { [month: string]: boolean | 'late' })
       return acc
     }, {} as PaymentData),
     totalAmount: 0,
