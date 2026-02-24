@@ -1,7 +1,7 @@
 'use client'
 
 import { USERS, MONTHS, AppData } from '@/lib/types'
-import { Check } from 'lucide-react'
+import { Check, AlertCircle } from 'lucide-react'
 
 interface PaymentTableProps {
   data: AppData
@@ -41,17 +41,20 @@ export function PaymentTable({ data, onNameClick }: PaymentTableProps) {
                 </button>
               </td>
               {MONTHS.map((month) => {
-                const isPaid = data.payments[user.id]?.[month.id] ?? false
+                const status = data.payments[user.id]?.[month.id] ?? false
                 return (
                   <td key={month.id} className="p-1.5 text-center">
                     <div
                       className={`w-7 h-7 mx-auto rounded-md flex items-center justify-center transition-all ${
-                        isPaid
+                        status === true
                           ? 'bg-success text-background'
+                          : status === 'late'
+                          ? 'bg-destructive text-destructive-foreground'
                           : 'bg-secondary border border-border'
                       }`}
                     >
-                      {isPaid && <Check className="w-4 h-4" strokeWidth={3} />}
+                      {status === true && <Check className="w-4 h-4" strokeWidth={3} />}
+                      {status === 'late' && <AlertCircle className="w-4 h-4" strokeWidth={3} />}
                     </div>
                   </td>
                 )
