@@ -121,7 +121,7 @@ function CredentialsModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function Home() {
-  const { data, isLoading, togglePayment, setTotalAmount, setDebt, addUser } = usePaymentData()
+  const { data, isLoading, togglePayment, setTotalAmount, setDebt, addUser, renameUser } = usePaymentData()
   const [showAdmin, setShowAdmin] = useState(false)
   const [showCredentials, setShowCredentials] = useState(false)
   const [clickCount, setClickCount] = useState(0)
@@ -220,6 +220,7 @@ export default function Home() {
           onSetTotalAmount={setTotalAmount}
           onSetDebt={setDebt}
           onAddUser={addUser}
+          onRenameUser={renameUser}
           onClose={() => setShowAdmin(false)}
         />
       )}

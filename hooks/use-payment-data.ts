@@ -87,6 +87,23 @@ export function usePaymentData() {
     [data, saveData]
   )
 
+  const renameUser = useCallback(
+    (id: string, newName: string) => {
+      if (!data) return
+      const existing = data.dynamicUsers ?? []
+      const userIndex = existing.findIndex((u) => u.id === id)
+      if (userIndex === -1) return
+      const updated = [...existing]
+      updated[userIndex] = { ...updated[userIndex], name: newName }
+      const newData = {
+        ...data,
+        dynamicUsers: updated,
+      }
+      saveData(newData)
+    },
+    [data, saveData]
+  )
+
   return {
     data: isLoading ? null : (data || getInitialData()),
     isLoading,
@@ -95,5 +112,6 @@ export function usePaymentData() {
     setTotalAmount,
     setDebt,
     addUser,
+    renameUser,
   }
 }

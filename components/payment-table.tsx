@@ -44,7 +44,7 @@ export function PaymentTable({ data, onNameClick }: PaymentTableProps) {
                     <span>{user.name}</span>
                     {hasDebt && (
                       <span className="text-[10px] font-semibold text-rose-400 mt-0.5">
-                        Tartozás: {debt.toLocaleString('hu-HU')} EUR
+                        Tartozás: {debt.toLocaleString('hu-HU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON
                       </span>
                     )}
                   </button>

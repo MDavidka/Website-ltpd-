@@ -12,6 +12,7 @@ interface AdminPanelProps {
   onSetTotalAmount: (amount: number) => void
   onSetDebt: (userId: string, amount: number) => void
   onAddUser: (id: string, name: string) => void
+  onRenameUser: (id: string, newName: string) => void
   onClose: () => void
 }
 
@@ -21,10 +22,13 @@ export function AdminPanel({
   onSetTotalAmount,
   onSetDebt,
   onAddUser,
+  onRenameUser,
   onClose,
 }: AdminPanelProps) {
   const [amountInput, setAmountInput] = useState(data.totalAmount.toString())
   const [newUserName, setNewUserName] = useState('')
+  const [editingUserId, setEditingUserId] = useState<string | null>(null)
+  const [editingUserName, setEditingUserName] = useState('')
   const printRef = useRef<HTMLDivElement>(null)
 
   const allUsers = [...USERS, ...(data.dynamicUsers ?? [])]
@@ -77,7 +81,7 @@ export function AdminPanel({
         return `<td><span class="${isPaid ? 'paid' : 'unpaid'}">${isPaid ? '✓' : '—'}</span></td>`
       }).join('')
       const debt = data.debts?.[user.id]
-      const debtLabel = debt && debt > 0 ? `<br/><span class="debt">Tartozás: ${debt.toLocaleString('hu-HU')} EUR</span>` : ''
+      const debtLabel = debt && debt > 0 ? `<br/><span class="debt">Tartozás: ${debt.toLocaleString('hu-HU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON</span>` : ''
       return `<tr><td><strong>${user.name}</strong>${debtLabel}</td>${cells}</tr>`
     }).join('')
 
@@ -176,23 +180,76 @@ export function AdminPanel({
                 Fizetések és tartozások kezelése
               </h3>
               <div className="space-y-6">
-                {allUsers.map((user) => (
+                {allUsers.map((user) => {
+                  const isDynamicUser = data.dynamicUsers?.some(u => u.id === user.id) ?? false
+                  const isEditing = editingUserId === user.id
+                  return (
                   <div key={user.id}>
                     <div className="flex items-center gap-3 mb-2">
-                      <p className="text-sm font-medium text-foreground flex-1">{user.name}</p>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2 flex-1">
+                          <Input
+                            type="text"
+                            value={editingUserName}
+                            onChange={(e) => setEditingUserName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && editingUserName.trim()) {
+                                onRenameUser(user.id, editingUserName.trim())
+                                setEditingUserId(null)
+                                setEditingUserName('')
+                              } else if (e.key === 'Escape') {
+                                setEditingUserId(null)
+                                setEditingUserName('')
+                              }
+                            }}
+                            className="flex-1 h-7 text-sm"
+                            autoFocus
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!editingUserName.trim()}
+                            onClick={() => {
+                              if (editingUserName.trim()) {
+                                onRenameUser(user.id, editingUserName.trim())
+                              }
+                              setEditingUserId(null)
+                              setEditingUserName('')
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Check className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isDynamicUser) {
+                              setEditingUserId(user.id)
+                              setEditingUserName(user.name)
+                            }
+                          }}
+                          className={`text-sm font-medium text-foreground flex-1 text-left ${isDynamicUser ? 'cursor-pointer hover:text-primary' : 'cursor-default'}`}
+                          title={isDynamicUser ? 'Kattints a szerkesztéshez' : ''}
+                        >
+                          {user.name}
+                        </button>
+                      )}
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">Tartozás:</span>
                         <Input
                           type="number"
                           min={0}
+                          step={0.01}
                           value={data.debts?.[user.id] ?? 0}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10)
+                            const val = parseFloat(e.target.value)
                             onSetDebt(user.id, isNaN(val) ? 0 : val)
                           }}
                           className="w-24 h-7 text-xs text-rose-400 font-semibold px-2"
                         />
-                        <span className="text-xs text-muted-foreground">EUR</span>
+                        <span className="text-xs text-muted-foreground">RON</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-6 gap-1.5">
@@ -216,7 +273,7 @@ export function AdminPanel({
                       })}
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </div>
 
