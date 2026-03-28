@@ -5,7 +5,7 @@ import { PaymentTable } from '@/components/payment-table'
 import { AdminPanel } from '@/components/admin-panel'
 import { usePaymentData } from '@/hooks/use-payment-data'
 import { USERS, MONTHS, AppData } from '@/lib/types'
-import { Lock, CreditCard, CheckCircle2, Clock, Calendar } from 'lucide-react'
+import { Lock, CreditCard, CheckCircle2, Clock, Calendar, X, Eye, EyeOff } from 'lucide-react'
 
 function PaymentStatus({ data }: { data: AppData }) {
   const now = new Date()
@@ -16,7 +16,9 @@ function PaymentStatus({ data }: { data: AppData }) {
   const targetMonthIndex = day >= 29 ? (currentMonthIndex + 1) % 12 : currentMonthIndex
   const targetMonth = MONTHS[targetMonthIndex]
 
-  const allPaid = USERS.every(
+  const allUsers = [...USERS, ...(data.dynamicUsers ?? [])]
+
+  const allPaid = allUsers.every(
     (user) => data.payments[user.id]?.[targetMonth.id] ?? false,
   )
 
@@ -72,9 +74,56 @@ function PaymentStatus({ data }: { data: AppData }) {
   )
 }
 
+function CredentialsModal({ onClose }: { onClose: () => void }) {
+  const [showPassword, setShowPassword] = useState(false)
+
+  return (
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-xl">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-foreground">Netflix belépési adatok</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary text-foreground active:bg-border transition-colors"
+            aria-label="Bezárás"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Email</p>
+            <p className="text-sm font-medium text-foreground bg-secondary rounded-lg px-3 py-2 select-all">
+              netflix@sycord.com
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Jelszó</p>
+            <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-2">
+              <p className="text-sm font-medium text-foreground select-all flex-1 font-mono">
+                {showPassword ? 'husbe6-donbow-keTduz' : '••••••••••••••••••••'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label={showPassword ? 'Jelszó elrejtése' : 'Jelszó megjelenítése'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
-  const { data, isLoading, togglePayment, setTotalAmount } = usePaymentData()
+  const { data, isLoading, togglePayment, setTotalAmount, setDebt, addUser } = usePaymentData()
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showCredentials, setShowCredentials] = useState(false)
   const [clickCount, setClickCount] = useState(0)
   const [clickTimer, setClickTimer] = useState<NodeJS.Timeout | null>(null)
 
@@ -135,23 +184,13 @@ export default function Home() {
           </div>
           <button
             type="button"
-            onClick={() => setShowAdmin(true)}
+            onClick={() => setShowCredentials(true)}
             className="mt-1 w-10 h-10 flex items-center justify-center rounded-full bg-secondary text-muted-foreground hover:text-foreground hover:bg-border transition-colors"
-            aria-label="Admin panel megnyitása"
+            aria-label="Netflix belépési adatok"
           >
             <Lock className="w-4 h-4" />
           </button>
         </header>
-
-        <div className="bg-card rounded-xl p-4 mb-4 border border-border">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-            Eddig birtokolt összeg
-          </p>
-          <p className="text-3xl font-bold text-foreground">
-            {data.totalAmount.toLocaleString('hu-HU')}{' '}
-            <span className="text-lg font-normal text-muted-foreground">EUR</span>
-          </p>
-        </div>
 
         <PaymentStatus data={data} />
 
@@ -163,18 +202,24 @@ export default function Home() {
           href="https://revolut.me/davidmarton07?currency=RON&amount=1424&note="
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full rounded-xl bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white font-semibold text-base transition-colors py-4 shadow-lg shadow-violet-900/30"
+          className="flex items-center justify-center gap-2 w-full rounded-xl bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-900 font-semibold text-base transition-colors py-4 shadow-lg shadow-black/10 border border-border"
         >
           <CreditCard className="w-5 h-5" />
           Kártyával fizetnék
         </a>
       </div>
 
+      {showCredentials && (
+        <CredentialsModal onClose={() => setShowCredentials(false)} />
+      )}
+
       {showAdmin && (
         <AdminPanel
           data={data}
           onTogglePayment={togglePayment}
           onSetTotalAmount={setTotalAmount}
+          onSetDebt={setDebt}
+          onAddUser={addUser}
           onClose={() => setShowAdmin(false)}
         />
       )}

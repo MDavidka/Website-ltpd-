@@ -4,12 +4,14 @@ import { useState, useRef } from 'react'
 import { USERS, MONTHS, AppData } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { X, Download, Check } from 'lucide-react'
+import { X, Download, Check, UserPlus } from 'lucide-react'
 
 interface AdminPanelProps {
   data: AppData
   onTogglePayment: (userId: string, monthId: string) => void
   onSetTotalAmount: (amount: number) => void
+  onSetDebt: (userId: string, amount: number) => void
+  onAddUser: (id: string, name: string) => void
   onClose: () => void
 }
 
@@ -17,10 +19,15 @@ export function AdminPanel({
   data,
   onTogglePayment,
   onSetTotalAmount,
+  onSetDebt,
+  onAddUser,
   onClose,
 }: AdminPanelProps) {
   const [amountInput, setAmountInput] = useState(data.totalAmount.toString())
+  const [newUserName, setNewUserName] = useState('')
   const printRef = useRef<HTMLDivElement>(null)
+
+  const allUsers = [...USERS, ...(data.dynamicUsers ?? [])]
 
   const handleAmountChange = (value: string) => {
     setAmountInput(value)
@@ -28,6 +35,19 @@ export function AdminPanel({
     if (!isNaN(num) && num >= 0) {
       onSetTotalAmount(num)
     }
+  }
+
+  const handleAddUser = () => {
+    const name = newUserName.trim()
+    if (!name) return
+    const id = name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+    onAddUser(id, name)
+    setNewUserName('')
   }
 
   const handleExportPDF = () => {
@@ -40,23 +60,25 @@ export function AdminPanel({
         body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; color: #1a1a1a; }
         h1 { font-size: 24px; margin-bottom: 8px; }
         .subtitle { color: #666; margin-bottom: 24px; font-size: 14px; }
-        .total { font-size: 18px; margin-bottom: 24px; padding: 16px; background: #f5f5f5; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; margin-top: 16px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 11px; }
         th { background: #f9f9f9; font-weight: 600; }
         th:first-child, td:first-child { text-align: left; min-width: 120px; }
         .paid { background: #22c55e; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
         .unpaid { background: #f1f1f1; padding: 4px 8px; border-radius: 4px; color: #999; }
+        .debt { color: #e11d48; font-size: 10px; }
         .footer { margin-top: 32px; font-size: 12px; color: #666; }
       </style>
     `
 
-    const tableRows = USERS.map(user => {
+    const tableRows = allUsers.map(user => {
       const cells = MONTHS.map(month => {
         const isPaid = data.payments[user.id]?.[month.id] ?? false
         return `<td><span class="${isPaid ? 'paid' : 'unpaid'}">${isPaid ? '✓' : '—'}</span></td>`
       }).join('')
-      return `<tr><td><strong>${user.name}</strong></td>${cells}</tr>`
+      const debt = data.debts?.[user.id]
+      const debtLabel = debt && debt > 0 ? `<br/><span class="debt">Tartozás: ${debt.toLocaleString('hu-HU')} EUR</span>` : ''
+      return `<tr><td><strong>${user.name}</strong>${debtLabel}</td>${cells}</tr>`
     }).join('')
 
     const monthHeaders = MONTHS.map(m => `<th>${m.name}</th>`).join('')
@@ -71,9 +93,6 @@ export function AdminPanel({
         <body>
           <h1>Netflix Elofizetes Koveto</h1>
           <p class="subtitle">2027 Január - December | Fizetési határidő: minden hónap 25.</p>
-          <div class="total">
-            <strong>Eddig birtokolt összeg:</strong> ${data.totalAmount.toLocaleString('hu-HU')} EUR
-          </div>
           <table>
             <thead>
               <tr>
@@ -127,14 +146,55 @@ export function AdminPanel({
               />
             </div>
 
+            <div className="bg-card rounded-xl p-4 border border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                Új személy hozzáadása
+              </h3>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Teljes név"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddUser()}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  onClick={handleAddUser}
+                  disabled={!newUserName.trim()}
+                  className="shrink-0"
+                >
+                  <UserPlus className="w-4 h-4 mr-1" />
+                  Hozzáad
+                </Button>
+              </div>
+            </div>
+
             <div className="bg-card rounded-xl p-4 border border-border" ref={printRef}>
               <h3 className="text-sm font-medium text-muted-foreground mb-4">
-                Fizetések kezelése
+                Fizetések és tartozások kezelése
               </h3>
-              <div className="space-y-4">
-                {USERS.map((user) => (
+              <div className="space-y-6">
+                {allUsers.map((user) => (
                   <div key={user.id}>
-                    <p className="text-sm font-medium text-foreground mb-2">{user.name}</p>
+                    <div className="flex items-center gap-3 mb-2">
+                      <p className="text-sm font-medium text-foreground flex-1">{user.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">Tartozás:</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={data.debts?.[user.id] ?? 0}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10)
+                            onSetDebt(user.id, isNaN(val) ? 0 : val)
+                          }}
+                          className="w-24 h-7 text-xs text-rose-400 font-semibold px-2"
+                        />
+                        <span className="text-xs text-muted-foreground">EUR</span>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-6 gap-1.5">
                       {MONTHS.map((month) => {
                         const isPaid = data.payments[user.id]?.[month.id] ?? false

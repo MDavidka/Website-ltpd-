@@ -9,6 +9,8 @@ interface PaymentTableProps {
 }
 
 export function PaymentTable({ data, onNameClick }: PaymentTableProps) {
+  const allUsers = [...USERS, ...(data.dynamicUsers ?? [])]
+
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full border-collapse">
@@ -28,36 +30,44 @@ export function PaymentTable({ data, onNameClick }: PaymentTableProps) {
           </tr>
         </thead>
         <tbody>
-          {USERS.map((user) => (
-            <tr key={user.id} className="border-t border-border">
-              <td className="p-2 sticky left-0 bg-background">
-                <button
-                  type="button"
-                  onClick={() => onNameClick?.(user.id)}
-                  className="text-sm font-medium text-foreground text-left leading-tight active:opacity-70 transition-opacity min-h-[44px] flex items-center"
-                >
-                  {user.name}
-                  
-                </button>
-              </td>
-              {MONTHS.map((month) => {
-                const isPaid = data.payments[user.id]?.[month.id] ?? false
-                return (
-                  <td key={month.id} className="p-1.5 text-center">
-                    <div
-                      className={`w-7 h-7 mx-auto rounded-md flex items-center justify-center transition-all ${
-                        isPaid
-                          ? 'bg-success text-background'
-                          : 'bg-secondary border border-border'
-                      }`}
-                    >
-                      {isPaid && <Check className="w-4 h-4" strokeWidth={3} />}
-                    </div>
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
+          {allUsers.map((user) => {
+            const debt = data.debts?.[user.id]
+            const hasDebt = debt !== undefined && debt > 0
+            return (
+              <tr key={user.id} className="border-t border-border">
+                <td className="p-2 sticky left-0 bg-background">
+                  <button
+                    type="button"
+                    onClick={() => onNameClick?.(user.id)}
+                    className="text-sm font-medium text-foreground text-left leading-tight active:opacity-70 transition-opacity min-h-[44px] flex flex-col items-start justify-center"
+                  >
+                    <span>{user.name}</span>
+                    {hasDebt && (
+                      <span className="text-[10px] font-semibold text-rose-400 mt-0.5">
+                        Tartozás: {debt.toLocaleString('hu-HU')} EUR
+                      </span>
+                    )}
+                  </button>
+                </td>
+                {MONTHS.map((month) => {
+                  const isPaid = data.payments[user.id]?.[month.id] ?? false
+                  return (
+                    <td key={month.id} className="p-1.5 text-center">
+                      <div
+                        className={`w-7 h-7 mx-auto rounded-md flex items-center justify-center transition-all ${
+                          isPaid
+                            ? 'bg-success text-background'
+                            : 'bg-secondary border border-border'
+                        }`}
+                      >
+                        {isPaid && <Check className="w-4 h-4" strokeWidth={3} />}
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

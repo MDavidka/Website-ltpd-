@@ -7,6 +7,8 @@ export interface PaymentData {
 export interface AppData {
   payments: PaymentData
   totalAmount: number
+  debts?: { [userId: string]: number }
+  dynamicUsers?: { id: string; name: string }[]
 }
 
 export const USERS = [
@@ -43,5 +45,7 @@ export function getInitialData(): AppData {
       return acc
     }, {} as PaymentData),
     totalAmount: 0,
+    debts: {},
+    dynamicUsers: [],
   }
 }
