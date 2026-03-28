@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useCallback } from "react"
 import useSWR from "swr"
 import type { AppData } from "@/lib/types"
-import { getInitialData } from "@/lib/types"
+import { getInitialData, MONTHS } from "@/lib/types"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -50,11 +50,50 @@ export function usePaymentData() {
     [data, saveData]
   )
 
+  const setDebt = useCallback(
+    (userId: string, amount: number) => {
+      if (!data) return
+      const newData = {
+        ...data,
+        debts: {
+          ...(data.debts ?? {}),
+          [userId]: amount,
+        },
+      }
+      saveData(newData)
+    },
+    [data, saveData]
+  )
+
+  const addUser = useCallback(
+    (id: string, name: string) => {
+      if (!data) return
+      const existing = data.dynamicUsers ?? []
+      if (existing.some((u) => u.id === id)) return
+      const initialPayments = MONTHS.reduce((acc, month) => {
+        acc[month.id] = false
+        return acc
+      }, {} as { [month: string]: boolean })
+      const newData = {
+        ...data,
+        dynamicUsers: [...existing, { id, name }],
+        payments: {
+          ...data.payments,
+          [id]: initialPayments,
+        },
+      }
+      saveData(newData)
+    },
+    [data, saveData]
+  )
+
   return {
     data: isLoading ? null : (data || getInitialData()),
     isLoading,
     error,
     togglePayment,
     setTotalAmount,
+    setDebt,
+    addUser,
   }
 }
