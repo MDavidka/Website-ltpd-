@@ -22,6 +22,8 @@ export async function GET() {
     const data: AppData = {
       payments: doc.payments || getInitialData().payments,
       totalAmount: doc.totalAmount ?? 0,
+      debts: doc.debts ?? {},
+      dynamicUsers: doc.dynamicUsers ?? [],
     }
     
     return NextResponse.json(data)
@@ -45,6 +47,8 @@ export async function POST(request: Request) {
         $set: { 
           payments: body.payments, 
           totalAmount: body.totalAmount,
+          debts: body.debts ?? {},
+          dynamicUsers: body.dynamicUsers ?? [],
         } 
       },
       { upsert: true }
