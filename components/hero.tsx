@@ -76,8 +76,11 @@ export function Hero() {
 
               {/* CTA Button */}
               <div className="pt-3">
-                <button className="w-44 py-3 bg-[#4a4a4a]/60 hover:bg-[#4a4a4a]/80 text-gray-400 rounded-full text-sm font-medium transition-colors">
-                  &nbsp;
+                <button 
+                  className="w-44 py-3 bg-[#4a4a4a]/60 hover:bg-[#4a4a4a]/80 text-gray-400 rounded-full text-sm font-medium transition-colors"
+                  aria-label="Get started"
+                >
+                  Get Started
                 </button>
               </div>
             </div>
@@ -103,10 +106,12 @@ export function Hero() {
       {/* Feature cards section */}
       <div className="relative z-10 max-w-5xl mx-auto px-8 lg:px-12 pb-20 pt-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3].map((cardIndex) => (
             <div 
-              key={i}
+              key={cardIndex}
               className="aspect-[1/1.1] rounded-2xl bg-[#1c1c1c] border border-[#2a2a2a] hover:border-[#333] transition-colors"
+              role="presentation"
+              aria-hidden="true"
             />
           ))}
         </div>
